@@ -891,6 +891,34 @@ class OceanicOSAppTests(unittest.TestCase):
             400,
         )
 
+    def test_verify_bundle_endpoint_cross_checks_the_embedded_digest(self):
+        # the online twin must mirror verify_ledger.py — including the round-0078
+        # digest cross-check, so it cannot fall behind the offline verifier
+        import verify_ledger
+        app_module.attestation_engine.attest("vb-digest", "body", ["plan"], 0.9)
+        with patch.dict("os.environ", {"OCEANICOS_SIGNING_KEY": "twin-key"}, clear=False):
+            bundle = self.client.get("/attestations/export").get_json()
+            good = self.client.post(
+                "/attestations/verify-bundle",
+                data=json.dumps(bundle),
+                content_type="application/json",
+            ).get_json()
+            # the endpoint reports the digest check, and it agrees with the offline CLI
+            self.assertIn("digest", good)
+            self.assertTrue(good["digest"]["signature_valid"])
+            self.assertTrue(good["digest"]["consistent"])
+            self.assertEqual(good["digest"], verify_ledger.full_report(bundle, key="twin-key")["digest"])
+
+            # a bundle whose embedded digest lies about the chain is caught here too
+            bundle["digest"]["chain_length"] = 99
+            bad = self.client.post(
+                "/attestations/verify-bundle",
+                data=json.dumps(bundle),
+                content_type="application/json",
+            ).get_json()
+        self.assertTrue(bad["intact"])  # the chain itself is untouched…
+        self.assertFalse(bad["digest"]["consistent"])  # …but its self-report contradicts it
+
     def test_drift_audit_records_and_lists(self):
         app_module.auth_registry.admin_users.add("drift-steward")
         try:

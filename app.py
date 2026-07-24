@@ -30,7 +30,7 @@ from consensus_log import ConsensusLog
 from cvi_history import CviHistory
 from drift_audit import DriftAuditLog
 from supersession import SupersessionLog
-from verify_ledger import verify_bundle
+from verify_ledger import full_report as verify_full_report
 from artifacts import ArtifactRegistry
 from attestation import AttestationEngine, CONFIDENCE_THRESHOLD
 from auth import ANONYMOUS, AuthRegistry
@@ -784,9 +784,11 @@ def verify_attestations():
 def verify_supplied_bundle():
     """Verify an exported bundle a caller holds — the online twin of verify_ledger.py.
 
-    Runs the same pure `verify_bundle` the offline verifier uses, so a client can
-    check a bundle against a trusted verifier without local tooling. Chain
-    integrity is always checked; the signed checkpoint validates only if this
+    Runs the same pure `full_report` the offline verifier uses — chain integrity,
+    the signed checkpoint, the version-graph counts, and the embedded-digest
+    cross-check — so a client checking a bundle here gets the identical report the
+    CLI would produce, and the twin cannot fall behind it. Chain integrity is
+    always checked; the checkpoint and digest signatures validate only if this
     server holds the key the bundle was sealed with (no secret is accepted over
     the wire).
     """
@@ -794,7 +796,7 @@ def verify_supplied_bundle():
     if not isinstance(payload, dict) or not isinstance(payload.get("attestations"), list):
         return jsonify({"error": "body must be an exported ledger bundle"}), 400
     key = os.getenv("OCEANICOS_SIGNING_KEY") or None
-    return jsonify(verify_bundle(payload, key=key))
+    return jsonify(verify_full_report(payload, key=key))
 
 
 @app.route("/attestations/checkpoint", methods=["POST"])
