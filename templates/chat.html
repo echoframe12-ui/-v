@@ -120,7 +120,7 @@
         <div class="msg os"><div class="card">
           <span class="verdict attested">Observer online</span>
           <p class="statement">Send anything — a claim, a plan, a decision. I won't answer it. I'll <em>attest</em> it: convene a panel of models plus a rules engine, surface their dissent, hash the result, and hold it if confidence falls below <span class="hash">0.74</span>.</p>
-          <p class="statement" style="font-size:0.86rem;color:var(--dim)">Or <em>query the record</em>: type <span class="hash">/help</span>, <span class="hash">/status</span>, <span class="hash">/verify</span>, <span class="hash">/cvi</span>, <span class="hash">/lookup &lt;text&gt;</span>, <span class="hash">/report</span>.</p>
+          <p class="statement" style="font-size:0.86rem;color:var(--dim)">Or <em>query the record</em>: type <span class="hash">/help</span>, <span class="hash">/status</span>, <span class="hash">/verify</span>, <span class="hash">/cvi</span>, <span class="hash">/lookup &lt;text&gt;</span>, <span class="hash">/receipt &lt;id&gt;</span>, <span class="hash">/report</span>.</p>
           <div class="facts"><span><span class="k">threshold</span> <span class="hash">0.74</span></span><span><span class="k">render delay</span> 2500ms (the cost of verification)</span></div>
         </div></div>
       </div>
@@ -214,6 +214,7 @@
         "/verify": "chain integrity",
         "/cvi": "the Composite Verification Index",
         "/lookup": "was this exact text attested?  /lookup <text>",
+        "/receipt": "the per-item proof for an attestation  /receipt <id>",
         "/report": "the full human trust report",
       };
       const pill = (cls, label) => `<span class="verdict ${cls}">${esc(label)}</span>`;
@@ -253,6 +254,17 @@
               card.innerHTML = d.found
                 ? `${pill("attested", "found")}<p class="statement">This exact content was attested ${d.matches.length}×. Latest confidence <b>${d.matches[d.matches.length-1].confidence}</b>.</p><div class="facts">${fact("sha256", `<span class="hash">${esc(d.sha256.slice(0,18))}…</span>`)}</div>`
                 : `${pill("held", "not found")}<p class="statement">No attestation of that exact content. <span class="hash">${esc(d.sha256.slice(0,18))}…</span></p>`;
+            }
+          }
+          else if (cmd === "/receipt") {
+            if (!/^[0-9]+$/.test(arg)) { card.innerHTML = pill("held", "usage") + `<p class="statement">/receipt &lt;id&gt; — the per-item proof for an attestation.</p>`; }
+            else {
+              const d = await getJSON("/attestations/" + arg + "/receipt");
+              const a = d.attestation, lin = d.lineage || {};
+              const current = lin.is_current ? `<span class="hash">current</span>` : `<span class="k">superseded by</span> #${(lin.superseded_by || []).join(", #")}`;
+              card.innerHTML = `${pill(d.entry_intact ? "attested" : "broken", "receipt #" + a.id)}
+                <p class="statement"><b>${esc(a.subject)}</b> · <b>${a.status}</b> · conf ${a.confidence}. This entry ${d.entry_intact ? "is intact" : "is TAMPERED"}; the ledger is ${d.chain_intact ? "intact" : "BROKEN"}.</p>
+                <div class="facts">${fact("chain", d.chain_position + "/" + d.chain_length)} ${fact("seal", d.sealed ? "sealed" : "unsealed")} ${fact("version", current)} ${fact("sha256", `<span class="hash">${esc((a.sha256||"").slice(0,18))}…</span>`)}</div>`;
             }
           }
           else if (cmd === "/report") {

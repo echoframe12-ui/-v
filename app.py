@@ -643,6 +643,8 @@ def attestation_receipt(att_id: int):
     receipt = attestation_engine.receipt(att_id)
     if receipt is None:
         return jsonify({"error": f"no attestation #{att_id}"}), 404
+    # supersession lineage — is this the current verified version? (round 66)
+    receipt["lineage"] = supersession_log.lineage(att_id)
     return jsonify(receipt)
 
 
