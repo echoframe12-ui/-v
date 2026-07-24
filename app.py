@@ -962,6 +962,34 @@ def attestation_badge(att_id):
     return resp
 
 
+@app.route("/proof/<int:att_id>", methods=["GET"])
+def proof_page(att_id: int):
+    """A shareable, human-readable proof page for one verified output.
+
+    The public certificate for a single attestation: its verdict and confidence, the
+    sources it cited, its place in the sealed chain, its content hash, and its
+    version (current or superseded) — with the embeddable badge and the exact steps
+    to verify it independently. Where the receipt is JSON for a verifier and the
+    badge is a glance, this is the page a customer links to as proof that a specific
+    output was verified. Built from the same `receipt` those surfaces use, so it
+    cannot claim more than they do. 404 (with a page) for a missing id.
+    """
+    receipt = attestation_engine.receipt(att_id)
+    if receipt is None:
+        return render_template("proof.html", receipt=None, att_id=att_id), 404
+    receipt["lineage"] = supersession_log.lineage(att_id)
+    att = receipt["attestation"]
+    if not receipt["entry_intact"] or not receipt["chain_intact"]:
+        verdict, vclass = "TAMPERED", "bad"
+    elif att["status"] == "attested":
+        verdict, vclass = "ATTESTED", "ok"
+    else:
+        verdict, vclass = "HELD", "warn"
+    return render_template(
+        "proof.html", receipt=receipt, att_id=att_id, verdict=verdict, vclass=vclass
+    )
+
+
 def _status_snapshot() -> dict[str, Any]:
     """Assemble the live trust posture once, for both `/status` and `/status.json`.
 

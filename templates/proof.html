@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if receipt %}Verification Proof · #{{ att_id }}{% else %}Not found · #{{ att_id }}{% endif %} · OceanicOS</title>
+  <style>
+    :root { --bg:#05070d; --dim:#8b98b0; --fg:#e6edf3; --line:rgba(140,170,220,.14);
+            --ok:#3fb950; --warn:#d29922; --bad:#f85149; --hash:#79c0ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:
+        radial-gradient(1100px 700px at 80% -10%, rgba(60,40,120,.35), transparent 60%),
+        radial-gradient(900px 600px at 0% 10%, rgba(20,80,120,.30), transparent 55%), var(--bg);
+      color:var(--fg); font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+      min-height:100vh; line-height:1.55; padding:48px 20px; }
+    .wrap { max-width:720px; margin:0 auto; }
+    .sigil { text-align:center; font-size:2rem; letter-spacing:.35em; font-weight:700;
+      background:linear-gradient(90deg,#7ee0ff,#c9a3ff);
+      -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .kicker { text-align:center; color:var(--dim); letter-spacing:.4em; font-size:.7rem;
+      text-transform:uppercase; margin:.4rem 0 2rem; }
+    .card { background:rgba(13,20,34,.72); border:1px solid var(--line); border-radius:16px;
+      padding:28px 26px; backdrop-filter:blur(8px); box-shadow:0 20px 60px rgba(0,0,0,.35); }
+    .verdict { display:inline-flex; align-items:center; gap:.6rem; font-size:1.05rem;
+      font-weight:600; letter-spacing:.12em; padding:.35rem .8rem; border-radius:999px;
+      border:1px solid var(--line); }
+    .verdict.ok { color:var(--ok); } .verdict.warn { color:var(--warn); } .verdict.bad { color:var(--bad); }
+    .dot { width:.6rem; height:.6rem; border-radius:50%; background:currentColor;
+      box-shadow:0 0 12px currentColor; }
+    .subject { font-size:1.35rem; font-weight:600; margin:1.1rem 0 .3rem; color:var(--fg); word-break:break-word; }
+    .lead { color:var(--dim); margin:0 0 1.4rem; }
+    .badge-row { margin:1rem 0 1.4rem; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:.1rem 1.4rem; border-top:1px solid var(--line); padding-top:1.2rem; }
+    .row { display:flex; justify-content:space-between; gap:1rem; padding:.5rem 0; border-bottom:1px solid var(--line); }
+    .k { color:var(--dim); } .v { text-align:right; word-break:break-word; }
+    .hash { color:var(--hash); font-size:.82rem; }
+    .verify { margin-top:1.6rem; border-top:1px solid var(--line); padding-top:1.2rem; }
+    .verify h3 { font-size:.72rem; letter-spacing:.3em; text-transform:uppercase; color:var(--dim); margin:0 0 .7rem; }
+    pre { background:rgba(0,0,0,.35); border:1px solid var(--line); border-radius:10px;
+      padding:.8rem .9rem; overflow-x:auto; font-size:.78rem; color:var(--dim); margin:.5rem 0; }
+    a { color:var(--hash); text-decoration:none; } a:hover { text-decoration:underline; }
+    .foot { text-align:center; color:var(--dim); font-size:.75rem; margin-top:2rem; }
+    @media (max-width:560px){ .grid{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sigil">Ω∞v</div>
+    <div class="kicker">Verification Proof</div>
+
+    {% if not receipt %}
+      <div class="card">
+        <div class="verdict bad"><span class="dot"></span>NOT FOUND</div>
+        <p class="subject">No attestation #{{ att_id }}</p>
+        <p class="lead">This platform has no record with that id. A proof exists only for an output that was actually attested.</p>
+      </div>
+    {% else %}
+      {% set att = receipt.attestation %}
+      <div class="card">
+        <div class="verdict {{ vclass }}"><span class="dot"></span>{{ verdict }}</div>
+        <div class="subject">{{ att.subject }}</div>
+        <p class="lead">
+          {% if verdict == 'ATTESTED' %}This output was verified and recorded in the sealed ledger.
+          {% elif verdict == 'HELD' %}This output was recorded but held below the {{ att.threshold }} confidence threshold — awaiting a human eye.
+          {% else %}This record no longer verifies — its entry or the chain has been altered. The proof is void.{% endif %}
+        </p>
+
+        <div class="badge-row"><img src="/badge/attestation/{{ att_id }}.svg?label=verified+output" alt="{{ verdict }}" height="20"></div>
+
+        <div class="grid">
+          <div class="row"><span class="k">confidence</span><span class="v">{{ att.confidence }} <span class="k">/ {{ att.threshold }}</span></span></div>
+          <div class="row"><span class="k">status</span><span class="v">{{ att.status }}</span></div>
+          <div class="row"><span class="k">chain position</span><span class="v">{{ receipt.chain_position }} / {{ receipt.chain_length }}</span></div>
+          <div class="row"><span class="k">seal</span><span class="v">{% if receipt.sealed %}sealed{% if receipt.checkpoint %} · len {{ receipt.checkpoint.length }}{% endif %}{% else %}unsealed{% endif %}</span></div>
+          <div class="row"><span class="k">chain</span><span class="v">{{ 'intact' if receipt.chain_intact else 'BROKEN' }}</span></div>
+          <div class="row"><span class="k">entry</span><span class="v">{{ 'intact' if receipt.entry_intact else 'TAMPERED' }}</span></div>
+          <div class="row"><span class="k">attested by</span><span class="v">{{ att.actor }}</span></div>
+          <div class="row"><span class="k">version</span><span class="v">{% if receipt.lineage and not receipt.lineage.is_current %}superseded{% else %}current{% endif %}</span></div>
+          <div class="row"><span class="k">sources</span><span class="v">{{ att.sources|join(', ') if att.sources else '—' }}</span></div>
+          <div class="row"><span class="k">recorded</span><span class="v">{{ att.created_at }}</span></div>
+        </div>
+
+        <div class="verify">
+          <h3>Verify this yourself</h3>
+          <p class="lead" style="margin:0 0 .6rem">The content hash below is the fingerprint of the attested output. Recompute it from the output you hold, and confirm it matches — then check the receipt against the sealed chain, online or offline.</p>
+          <div class="row"><span class="k">sha256</span><span class="v hash">{{ att.sha256 }}</span></div>
+          <pre># online: fetch the machine receipt
+curl {{ request.host_url }}attestations/{{ att_id }}/receipt
+
+# offline: verify the receipt with no service
+oceanic-os receipt --verify receipt.json --content-file your_output.txt</pre>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="foot">
+      Ω∞v · <a href="/">the terminal</a> · <a href="/status">status</a> · <a href="/console">operator console</a> · the record attests to itself
+    </div>
+  </div>
+</body>
+</html>
