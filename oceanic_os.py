@@ -29,6 +29,7 @@ import models
 import readiness
 import report as trust_report
 import status_digest
+import verify_ledger
 from datetime import datetime, timezone
 from attestation import CONFIDENCE_THRESHOLD, AttestationEngine
 from consensus_log import ConsensusLog
@@ -273,6 +274,64 @@ def _cmd_digest(argv: list[str]) -> int:
     return 0
 
 
+def _cmd_receipt(argv: list[str]) -> int:
+    """Emit or verify a single attestation receipt — the per-item proof, offline.
+
+    With an id, prints the receipt for that attestation from the configured ledger
+    (the same document `/attestations/<id>/receipt` serves). With `--verify FILE`
+    (or `-` for stdin), independently confirms a receipt by recomputing the entry's
+    own `link_hash` rather than trusting its asserted `entry_intact` flag — a
+    forged receipt whose content was edited fails even though it claims to be
+    intact. `--content-file` binds the receipt to the original attested content by
+    SHA-256. The receipt counterpart to `digest`: produce here, hand it to an
+    auditor, verify anywhere.
+    """
+    parser = argparse.ArgumentParser(prog="oceanic-os receipt")
+    parser.add_argument("id", nargs="?", default=None, help="attestation id to emit a receipt for")
+    parser.add_argument(
+        "--verify", metavar="FILE", default=None,
+        help="verify a receipt file (or '-' for stdin) instead of emitting one",
+    )
+    parser.add_argument(
+        "--content-file", metavar="PATH", default=None,
+        help="the original attested content, to bind the receipt to it by SHA-256",
+    )
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.verify is not None:
+        raw = sys.stdin.read() if args.verify == "-" else open(args.verify).read()
+        receipt = json.loads(raw)
+        content = open(args.content_file).read() if args.content_file else None
+        result = verify_ledger.verify_receipt(receipt, content=content)
+        # success = the entry hash recomputes and, if content was given, it binds
+        ok = result["entry_hash_valid"] and result["content_matches"] is not False
+        asserted = result["asserted"]
+
+        def _summary(r):
+            bind = {True: "content matches", False: "content MISMATCH", None: "no content bound"}[r["content_matches"]]
+            seal = "sealed" if asserted.get("sealed") else "unsealed"
+            return (
+                f"receipt #{r['attestation_id']}: {'VALID' if ok else 'INVALID'}"
+                f" · entry hash {'intact' if r['entry_hash_valid'] else 'TAMPERED'}"
+                f" · {bind}"
+                f" · [asserted] chain {'intact' if asserted.get('chain_intact') else 'BROKEN'}, {seal}"
+            )
+
+        _emit(result, args.json, _summary)
+        return 0 if ok else 1
+
+    if args.id is None or not args.id.isdigit():
+        print("usage: oceanic-os receipt <id> | --verify FILE [--content-file PATH]")
+        return 2
+    receipt = AttestationEngine(_db_path()).receipt(int(args.id))
+    if receipt is None:
+        print(f"receipt: no attestation #{args.id}")
+        return 1
+    print(json.dumps(receipt, indent=2))
+    return 0
+
+
 def _cmd_gate(argv: list[str]) -> int:
     """A CI trust gate: pass only if the ledger meets the required posture.
 
@@ -469,6 +528,7 @@ _COMMANDS = {
     "ready": _cmd_ready,
     "gate": _cmd_gate,
     "digest": _cmd_digest,
+    "receipt": _cmd_receipt,
     "report": _cmd_report,
 }
 
