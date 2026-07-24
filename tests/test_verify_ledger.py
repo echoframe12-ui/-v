@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from attestation import GENESIS_HASH, AttestationEngine, link_hash
-from verify_ledger import verify_bundle
+from verify_ledger import current_ids, verify_bundle
 
 KEY = "operator-secret"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -46,6 +46,19 @@ class VerifyBundleTests(unittest.TestCase):
         # the chain still checks out; the signature just isn't validated
         self.assertFalse(report["checkpoint"]["signature_valid"])
         self.assertFalse(report["trustworthy"])
+
+    def test_current_ids_reads_the_version_graph_offline(self):
+        # no supersessions -> every attestation is current
+        self.assertEqual(current_ids(self.bundle), [1, 2])
+        # #1 superseded by #2 -> only #2 is current
+        bundle = copy.deepcopy(self.bundle)
+        bundle["supersessions"] = [{"old_id": 1, "new_id": 2, "actor": "a", "reason": "r"}]
+        self.assertEqual(current_ids(bundle), [2])
+
+    def test_missing_supersessions_key_treats_all_as_current(self):
+        bundle = copy.deepcopy(self.bundle)
+        bundle.pop("supersessions", None)
+        self.assertEqual(current_ids(bundle), [1, 2])
 
     def test_editing_an_attestation_breaks_the_chain(self):
         tampered = copy.deepcopy(self.bundle)
