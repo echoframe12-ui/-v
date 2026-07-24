@@ -176,6 +176,27 @@ class SubcommandTests(unittest.TestCase):
         code_ok, _ = self._run(["gate", "--max-held-pending", "2"])
         self.assertEqual(code_ok, 0)
 
+    def test_gate_reports_dissent_and_gates_only_when_asked(self):
+        from consensus_log import ConsensusLog
+        AttestationEngine(self.db_path).attest("a", "c", ["plan"], 0.9)
+        # a split panel evaluation -> dissent_rate 1.0
+        ConsensusLog(self.db_path).record(
+            "some task",
+            {"verdicts": ["approve", "reject"], "adapters": ["x", "y"],
+             "majority": "approve", "dissent": True},
+        )
+        # dissent is reported on every gate run, and does not fail on its own
+        code, out = self._run(["gate"])
+        self.assertEqual(code, 0)
+        self.assertIn("dissent 1.0", out)
+        # opt-in ceiling fails when the recorded rate exceeds it
+        code_fail, out_fail = self._run(["gate", "--max-dissent-rate", "0.5"])
+        self.assertEqual(code_fail, 1)
+        self.assertIn("dissent_rate 1.0 over ceiling 0.5", out_fail)
+        # and passes when the rate is within the ceiling
+        code_ok, _ = self._run(["gate", "--max-dissent-rate", "1.0"])
+        self.assertEqual(code_ok, 0)
+
     def test_digest_emits_signed_and_verifies_roundtrip(self):
         import status_digest
         AttestationEngine(self.db_path).attest("a", "c", ["plan"], 0.9)
