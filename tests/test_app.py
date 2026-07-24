@@ -1527,6 +1527,22 @@ class OceanicOSAppTests(unittest.TestCase):
         # including a per-item receipt command (round 77)
         self.assertIn("/receipt", body)
 
+    def test_becoming_page_renders(self):
+        response = self.client.get("/becoming")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.content_type)
+        body = response.get_data(as_text=True)
+        # the master-sequence narrative and its live-data stations
+        self.assertIn("Blessings in Disguise", body)
+        self.assertIn("Continuous Becoming", body)
+        self.assertIn('id="river"', body)
+        # a pure client over the public endpoints it renders
+        self.assertIn("/status.json", body)
+        self.assertIn("/evolution", body)
+        self.assertIn("/observer", body)
+        # a way back to the terminal
+        self.assertIn('href="/"', body)
+
     def test_console_renders_boot_splash(self):
         response = self.client.get("/console")
         self.assertEqual(response.status_code, 200)
