@@ -283,6 +283,60 @@ class SubcommandTests(unittest.TestCase):
             else:
                 os.environ["OCEANICOS_SIGNING_KEY"] = prev
 
+    def test_receipt_emits_for_an_id(self):
+        AttestationEngine(self.db_path).attest("subj", "the output", ["plan"], 0.9)
+        code, out = self._run(["receipt", "1"])
+        self.assertEqual(code, 0)
+        receipt = json.loads(out)
+        self.assertIn("attestation", receipt)
+        self.assertEqual(receipt["attestation"]["id"], 1)
+        self.assertIn("entry_intact", receipt)
+
+    def test_receipt_missing_id_errors(self):
+        AttestationEngine(self.db_path).attest("subj", "x", ["plan"], 0.9)
+        code, out = self._run(["receipt", "999"])
+        self.assertEqual(code, 1)
+        self.assertIn("no attestation #999", out)
+
+    def test_receipt_verify_roundtrip_and_content_binding(self):
+        AttestationEngine(self.db_path).attest("subj", "the payload", ["plan"], 0.9)
+        _, out = self._run(["receipt", "1"])
+        path = os.path.join(self.workspace, "r.json")
+        with open(path, "w") as fh:
+            fh.write(out)
+        # verify the receipt alone -> VALID, exit 0
+        code, vout = self._run(["receipt", "--verify", path])
+        self.assertEqual(code, 0)
+        self.assertIn("VALID", vout)
+        self.assertIn("entry hash intact", vout)
+        # bind to the real content -> still VALID, content matches
+        cpath = os.path.join(self.workspace, "content.txt")
+        with open(cpath, "w") as fh:
+            fh.write("the payload")
+        code2, vout2 = self._run(["receipt", "--verify", path, "--content-file", cpath])
+        self.assertEqual(code2, 0)
+        self.assertIn("content matches", vout2)
+        # bind to the wrong content -> INVALID, exit 1
+        with open(cpath, "w") as fh:
+            fh.write("not the payload")
+        code3, vout3 = self._run(["receipt", "--verify", path, "--content-file", cpath])
+        self.assertEqual(code3, 1)
+        self.assertIn("content MISMATCH", vout3)
+
+    def test_receipt_verify_detects_a_forged_receipt(self):
+        AttestationEngine(self.db_path).attest("subj", "the output", ["plan"], 0.9)
+        _, out = self._run(["receipt", "1"])
+        receipt = json.loads(out)
+        # forge the content but keep the old entry_hash and the asserted intact flag
+        receipt["attestation"]["subject"] = "tampered"
+        receipt["entry_intact"] = True
+        path = os.path.join(self.workspace, "forged.json")
+        with open(path, "w") as fh:
+            fh.write(json.dumps(receipt))
+        code, vout = self._run(["receipt", "--verify", path])
+        self.assertEqual(code, 1)
+        self.assertIn("TAMPERED", vout)
+
     def test_gate_max_cvi_drop_catches_regression(self):
         from cvi_history import CviHistory
         engine = AttestationEngine(self.db_path)
