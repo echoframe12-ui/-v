@@ -235,6 +235,20 @@ class OceanicOSAppTests(unittest.TestCase):
         # bad limit -> 400
         self.assertEqual(self.client.get("/consensus/history?limit=x").status_code, 400)
 
+    def test_builder_run_records_build_time_dissent(self):
+        before = self.client.get("/consensus/stats").get_json()["evaluations"]
+        self.client.post(
+            "/builder/run",
+            data=json.dumps({"task": "Plan the charter build"}),
+            content_type="application/json",
+        )
+        after = self.client.get("/consensus/stats").get_json()
+        # the build's panel evaluation was recorded in the dissent ledger too
+        self.assertEqual(after["evaluations"], before + 1)
+        entry = self.client.get("/consensus/history?limit=1").get_json()[0]
+        self.assertEqual(len(entry["prompt_sha256"]), 64)
+        self.assertIn("dissent_score", entry)
+
     def test_attestation_lookup_by_content_and_hash(self):
         engine = app_module.attestation_engine
         att = engine.attest("lookup-subj", "a very specific output", [], 0.9)
