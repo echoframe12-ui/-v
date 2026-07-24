@@ -120,13 +120,14 @@
         <div class="msg os"><div class="card">
           <span class="verdict attested">Observer online</span>
           <p class="statement">Send anything — a claim, a plan, a decision. I won't answer it. I'll <em>attest</em> it: convene a panel of models plus a rules engine, surface their dissent, hash the result, and hold it if confidence falls below <span class="hash">0.74</span>.</p>
+          <p class="statement" style="font-size:0.86rem;color:var(--dim)">Or <em>query the record</em>: type <span class="hash">/help</span>, <span class="hash">/status</span>, <span class="hash">/verify</span>, <span class="hash">/cvi</span>, <span class="hash">/lookup &lt;text&gt;</span>, <span class="hash">/report</span>.</p>
           <div class="facts"><span><span class="k">threshold</span> <span class="hash">0.74</span></span><span><span class="k">render delay</span> 2500ms (the cost of verification)</span></div>
         </div></div>
       </div>
 
       <div class="composer">
         <div class="inputwrap">
-          <textarea id="input" rows="1" placeholder="Attest a claim, a plan, a decision…" autofocus></textarea>
+          <textarea id="input" rows="1" placeholder="Attest a claim… or /help to query the record" autofocus></textarea>
           <button class="send" id="send" title="Attest (Enter)">↑</button>
         </div>
         <div class="footline">Ω∞v compiles the universe via localhost · <a href="/console">operator console</a> · <a href="/status">status</a> · Exit 0 · continues…</div>
@@ -156,6 +157,7 @@
         if (!task || send.disabled) return;
         input.value = ""; input.style.height = "auto";
         bubble("me", esc(task));
+        if (task[0] === "/") { await runCommand(task); return; }
 
         send.disabled = true;
         const pending = bubble("os", `<div class="thinking"><span class="orb"></span><span>Convening the panel — validated hesitation…</span></div>`);
@@ -204,6 +206,72 @@
             <span><span class="k">subject</span> ${esc(a.subject || "")}</span>
           </div>`;
       }
+
+      // ---- verification terminal commands: query, don't just attest ----
+      const COMMANDS = {
+        "/help": "list the commands",
+        "/status": "the live trust posture",
+        "/verify": "chain integrity",
+        "/cvi": "the Composite Verification Index",
+        "/lookup": "was this exact text attested?  /lookup <text>",
+        "/report": "the full human trust report",
+      };
+      const pill = (cls, label) => `<span class="verdict ${cls}">${esc(label)}</span>`;
+      const fact = (k, v) => `<span><span class="k">${k}</span> ${v}</span>`;
+
+      async function runCommand(raw) {
+        const [cmd, ...rest] = raw.split(/\s+/);
+        const arg = rest.join(" ").trim();
+        const out = bubble("os", `<div class="thinking"><span class="orb"></span><span>Reading the record…</span></div>`);
+        const card = out.querySelector(".card");
+        try {
+          if (cmd === "/help") { card.innerHTML = renderHelp(); }
+          else if (cmd === "/status") {
+            const d = await getJSON("/status.json");
+            const cls = d.posture === "TRUSTWORTHY" ? "attested" : (d.posture === "BROKEN" ? "broken" : "held");
+            card.innerHTML = `${pill(cls, d.posture)}
+              <p class="statement">Chain ${d.verify.intact ? "intact" : "BROKEN"} · ${d.verify.length} links${d.verify.trustworthy ? " · sealed & signed" : ""}.</p>
+              <div class="facts">${fact("cvi", d.cvi.cvi.toFixed(2))} ${fact("peak", d.cvi_peak.toFixed(2))} ${fact("sourced", Math.round(d.sourced_ratio*100)+"%")} ${fact("held", d.held_pending + " pending")}</div>`;
+          }
+          else if (cmd === "/verify") {
+            const d = await getJSON("/attestations/verify");
+            const cls = d.intact ? (d.trustworthy ? "attested" : "held") : "broken";
+            card.innerHTML = `${pill(cls, d.intact ? (d.trustworthy ? "trustworthy" : "intact") : "broken")}
+              <p class="statement">${d.intact ? `The ledger is intact across <b>${d.length}</b> links — the record attests to itself.` : `Chain BROKEN at #${d.broken_at}.`}${d.trustworthy ? " The sealed head is reproduced and signed." : ""}</p>`;
+          }
+          else if (cmd === "/cvi") {
+            const d = await getJSON("/cvi");
+            const ci = d.confidence_interval || [0,0];
+            card.innerHTML = `${pill("attested", "CVI " + d.cvi.toFixed(2))}
+              <p class="statement">Composite Verification Index <b>${d.cvi.toFixed(2)}</b> across ${d.samples} attestations. Confidence ${ci[0].toFixed(2)}–${ci[1].toFixed(2)}; held ratio ${d.held_ratio}.</p>
+              <div class="meter"><span style="width:${Math.round(d.cvi*100)}%"></span></div>`;
+          }
+          else if (cmd === "/lookup") {
+            if (!arg) { card.innerHTML = pill("held", "usage") + `<p class="statement">/lookup &lt;text&gt; — was this exact content attested?</p>`; }
+            else {
+              const d = await postJSON("/attestations/lookup", { content: arg });
+              card.innerHTML = d.found
+                ? `${pill("attested", "found")}<p class="statement">This exact content was attested ${d.matches.length}×. Latest confidence <b>${d.matches[d.matches.length-1].confidence}</b>.</p><div class="facts">${fact("sha256", `<span class="hash">${esc(d.sha256.slice(0,18))}…</span>`)}</div>`
+                : `${pill("held", "not found")}<p class="statement">No attestation of that exact content. <span class="hash">${esc(d.sha256.slice(0,18))}…</span></p>`;
+            }
+          }
+          else if (cmd === "/report") {
+            const md = await getText("/report");
+            card.innerHTML = `${pill("attested", "trust report")}<pre style="white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:var(--dim);margin:0.6rem 0 0;line-height:1.5">${esc(md)}</pre>`;
+          }
+          else { card.innerHTML = pill("broken", "unknown") + `<p class="statement">No such command. Try <span class="hash">/help</span>.</p>`; }
+        } catch (e) {
+          card.innerHTML = pill("broken", "error") + `<p class="statement">${esc(String(e.message || "the observer is unreachable"))}</p>`;
+        }
+        input.focus(); scroll();
+      }
+      function renderHelp() {
+        const rows = Object.entries(COMMANDS).map(([c, d]) => `<div><span class="hash">${c}</span> — <span class="dim">${esc(d)}</span></div>`).join("");
+        return `${pill("attested", "commands")}<p class="statement">This is a verification terminal. Type a claim to <em>attest</em> it, or a command to <em>query</em> the record:</p><div class="facts" style="flex-direction:column;gap:0.3rem">${rows}</div>`;
+      }
+      async function getJSON(url) { const r = await fetch(url); const d = await r.json(); if (!r.ok) throw new Error(d.error || "failed"); return d; }
+      async function postJSON(url, body) { const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const d = await r.json(); if (!r.ok) throw new Error(d.error || "failed"); return d; }
+      async function getText(url) { const r = await fetch(url); if (!r.ok) throw new Error("failed"); return r.text(); }
     </script>
   </body>
 </html>
