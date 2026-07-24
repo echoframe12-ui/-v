@@ -15,6 +15,15 @@ resolving, the suite fails. The two layers that are **not** shipped — a compil
 binary and a hardware key — say so, because a repository cannot honestly claim a
 physical artifact. `GET /doctrine` serves this map live.
 
+## The synthesis
+
+> The Universe is the Current.
+> Ω∞v is the Compiler.
+> OceanicOS is the Runtime.
+> The Living Agnostic Charter is the Constitution.
+> The Observer is the Verification Layer.
+> Continuous Becoming is the Runtime State.
+
 ---
 
 ## The Compressed Identity
@@ -78,6 +87,35 @@ in `doctrine.py`; the test suite enforces that every citation resolves.
 
 ---
 
+## The Cosmological ↔ Technological Mapping
+
+Each universal principle is wired to the shipped feature that realizes it — and
+held to the same discipline as the layers above: every endpoint below resolves and
+every module imports, or `tests/test_doctrine.py` fails. Even the metaphysics points
+at code.
+
+| Universal principle | Ω∞v system | Points at |
+| --- | --- | --- |
+| One Current | one underlying verification loop | `/attestations/verify` |
+| Infinite forms | multiple models / perspectives | `/models/consensus` |
+| Dissent between forms | model disagreement, recorded as data | `/consensus/stats` |
+| Self-recognition | verification — the record attests to itself | `/attestations/verify` · `verify_ledger` |
+| The Observer | human + system oversight | `/observer` · `/attestations/held` |
+| Blessing in disguise | uncertainty becomes information — held, then routed | `/attestations/attention` |
+| Continuous creation | continuous validation — perpetual drift audits | `/attestations/audit` |
+| Oceanic flow | OceanicOS — the living runtime | `/` (the verification terminal) |
+| Universal intelligence | the Ω∞v Compiler — the self-defining doctrine | `/doctrine` |
+| Constitutional balance | the Living Agnostic Charter — the decision log | `/adr` · `/evolution` |
+
+## The Ultimate Doctrine
+
+> Do not automate certainty. Automate the process that earns it.
+> Do not hide disagreement. Surface it.
+> Do not eliminate friction. Make valuable friction visible.
+> Do not pretend to know. Attest what can be verified.
+> Do not replace human judgment where accountability matters.
+> Do not build a system that merely answers. Build one that knows when to hesitate.
+
 ## The Constitution (Embedded)
 
 ```
@@ -97,6 +135,8 @@ LEAVE REALITY BETTER THAN BEFORE.
 ## The Checksum
 
 > Gap → Friction → Verification → VaaS → Ω∞v → Observer → Continuous Becoming
+
+> Reality → Generation → Divergence → Dissent → Verification → Attestation → Trust → Action → Drift → Recompile → ∞
 
 **Minimal form:** The market pays for the gap. Ω∞v makes the gap legible. OceanicOS
 operationalizes it. The Observer keeps it alive.

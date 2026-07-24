@@ -31,6 +31,19 @@ class DoctrineIntegrityTests(unittest.TestCase):
                 for doc in ev.get("docs", []):
                     self.assertTrue((REPO_ROOT / doc).exists(), f"{layer['layer']}: missing {doc}")
 
+    def test_every_mapping_entry_cites_resolvable_code(self):
+        # the cosmological -> technological mapping is held to the same discipline:
+        # even the metaphysics must point at code that resolves
+        self.assertTrue(doctrine.MAPPING)
+        for entry in doctrine.MAPPING:
+            ev = entry["evidence"]
+            with self.subTest(principle=entry["principle"]):
+                self.assertTrue(entry["system"].strip())
+                for endpoint in ev.get("endpoints", []):
+                    self.assertIn(endpoint, ROUTES, f"{entry['principle']}: no route {endpoint}")
+                for module in ev.get("modules", []):
+                    importlib.import_module(module)
+
     def test_unshipped_layers_are_honest(self):
         # a layer that isn't shipped must say so and explain — attest, don't assert
         unshipped = [l for l in doctrine.LAYERS if not l["shipped"]]
@@ -47,6 +60,11 @@ class DoctrineIntegrityTests(unittest.TestCase):
         self.assertEqual(s["layers_shipped"], sum(1 for l in doctrine.LAYERS if l["shipped"]))
         self.assertLess(s["layers_shipped"], s["layers_total"])  # honesty: not everything ships
         self.assertEqual(s["status"], "continues")
+        # the deepest-compression additions are carried
+        self.assertEqual(len(s["maxims"]), 6)
+        self.assertEqual(len(s["synthesis"]), 6)
+        self.assertIn("→ Recompile → ∞", s["checksum_line"])
+        self.assertEqual(len(s["mapping"]), len(doctrine.MAPPING))
 
     def test_doctrine_md_exists(self):
         self.assertTrue((REPO_ROOT / "DOCTRINE.md").exists())

@@ -23,6 +23,80 @@ AXIOMS = [
 
 CHECKSUM = "Gap → Friction → Verification → VaaS → Ω∞v → Observer → Continuous Becoming"
 
+# The deepest compression's single line — the loop stated end to end.
+CHECKSUM_LINE = (
+    "Reality → Generation → Divergence → Dissent → Verification → Attestation "
+    "→ Trust → Action → Drift → Recompile → ∞"
+)
+
+# The ultimate doctrine: what the system refuses. Five maxims, no code to cite —
+# they are the negative space the shipped features are shaped around.
+MAXIMS = [
+    "Do not automate certainty. Automate the process that earns it.",
+    "Do not hide disagreement. Surface it.",
+    "Do not eliminate friction. Make valuable friction visible.",
+    "Do not pretend to know. Attest what can be verified.",
+    "Do not replace human judgment where accountability matters.",
+    "Do not build a system that merely answers. Build one that knows when to hesitate.",
+]
+
+# The cosmological ↔ technological mapping — each universal principle wired to the
+# shipped feature that realizes it. Held to the same discipline as LAYERS: every
+# cited endpoint must resolve and every module must import (a test enforces it),
+# so even the metaphysics points at code.
+MAPPING: list[dict[str, Any]] = [
+    {
+        "principle": "One Current",
+        "system": "one underlying verification loop",
+        "evidence": {"endpoints": ["/attestations/verify"], "modules": ["attestation"]},
+    },
+    {
+        "principle": "Infinite forms",
+        "system": "multiple models / perspectives",
+        "evidence": {"endpoints": ["/models/consensus"], "modules": ["models"]},
+    },
+    {
+        "principle": "Dissent between forms",
+        "system": "model disagreement, recorded as data",
+        "evidence": {"endpoints": ["/consensus/stats"], "modules": ["consensus_log"]},
+    },
+    {
+        "principle": "Self-recognition",
+        "system": "verification — the record attests to itself",
+        "evidence": {"endpoints": ["/attestations/verify"], "modules": ["verify_ledger"]},
+    },
+    {
+        "principle": "The Observer",
+        "system": "human + system oversight",
+        "evidence": {"endpoints": ["/observer", "/attestations/held"], "modules": ["identity"]},
+    },
+    {
+        "principle": "Blessing in disguise",
+        "system": "uncertainty becomes information — held, then routed",
+        "evidence": {"endpoints": ["/attestations/attention"], "modules": ["held_reviews"]},
+    },
+    {
+        "principle": "Continuous creation",
+        "system": "continuous validation — perpetual drift audits",
+        "evidence": {"endpoints": ["/attestations/audit"], "modules": ["drift_audit"]},
+    },
+    {
+        "principle": "Oceanic flow",
+        "system": "OceanicOS — the living runtime, its face a verification terminal",
+        "evidence": {"endpoints": ["/"], "modules": ["oceanic_os"]},
+    },
+    {
+        "principle": "Universal intelligence",
+        "system": "the Ω∞v Compiler — the self-defining doctrine",
+        "evidence": {"endpoints": ["/doctrine"], "modules": ["doctrine"]},
+    },
+    {
+        "principle": "Constitutional balance",
+        "system": "the Living Agnostic Charter — the decision log as constitution",
+        "evidence": {"endpoints": ["/adr", "/evolution"], "modules": ["adr"]},
+    },
+]
+
 # Each layer of the Doctrine, mapped to the code that implements it. `shipped`
 # is honest: True only when every cited path resolves (a test enforces this).
 LAYERS: list[dict[str, Any]] = [
@@ -143,10 +217,21 @@ def summary() -> dict[str, Any]:
             "LEARN CONTINUOUSLY.",
             "LEAVE REALITY BETTER THAN BEFORE.",
         ],
+        "maxims": MAXIMS,
         "layers": LAYERS,
         "layers_total": len(LAYERS),
         "layers_shipped": shipped,
+        "mapping": MAPPING,
         "checksum": CHECKSUM,
+        "checksum_line": CHECKSUM_LINE,
+        "synthesis": [
+            "The Universe is the Current.",
+            "Ω∞v is the Compiler.",
+            "OceanicOS is the Runtime.",
+            "The Living Agnostic Charter is the Constitution.",
+            "The Observer is the Verification Layer.",
+            "Continuous Becoming is the Runtime State.",
+        ],
         "exit": 0,
         "status": "continues",
     }
