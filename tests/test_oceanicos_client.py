@@ -93,6 +93,18 @@ class OceanicOSClientTests(unittest.TestCase):
         # the dissent rate is inside what the signature covers (round 0075)
         self.assertFalse(self.kai.verify_digest("client-key", {**digest, "dissent_rate": 0.999}))
 
+    def test_verify_receipt_locally(self):
+        att = app_module.attestation_engine.attest("client-receipt", "the payload", ["plan"], 0.9)
+        # fetch-and-verify: the entry hash recomputes, and the content binds
+        result = self.kai.verify_receipt(att["id"], content="the payload")
+        self.assertTrue(result["entry_hash_valid"])
+        self.assertTrue(result["content_matches"])
+        self.assertEqual(result["attestation_id"], att["id"])
+        # a wrong content does not bind to the receipt
+        self.assertFalse(self.kai.verify_receipt(att["id"], content="wrong")["content_matches"])
+        # without content, entry integrity still verifies
+        self.assertTrue(self.kai.verify_receipt(att["id"])["entry_hash_valid"])
+
     def test_verify_digest_false_when_unsigned(self):
         # no signing key -> unsigned digest -> nothing to verify
         with patch.dict("os.environ", {}, clear=False):

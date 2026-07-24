@@ -132,6 +132,24 @@ class OceanicOSClient:
         """Supersession lineage — is this the current verified version?"""
         return self._call("GET", f"/attestations/{int(att_id)}/lineage")
 
+    def verify_receipt(self, att_id: int, content: Optional[str] = None) -> dict:
+        """Fetch a receipt and independently confirm it, offline — recompute, don't trust.
+
+        Completes the recipient story for the third artifact the platform hands out:
+        as `verify_digest` checks a signed posture and `verify_bundle` checks a
+        record, this recomputes a single attestation's own `link_hash` rather than
+        believing the receipt's asserted `entry_intact` flag, so a receipt whose
+        content was edited fails even though it claims to be intact. Pass the
+        original `content` to also bind the receipt to it by SHA-256.
+
+        Uses the platform's own `verify_ledger.verify_receipt`, so the client checks
+        an entry exactly the way the ledger hashes one and cannot drift.
+        """
+        import verify_ledger
+
+        receipt = self.receipt(att_id)
+        return verify_ledger.verify_receipt(receipt, content=content)
+
     def subject_history(self, subject: str) -> Any:
         return self._call("GET", "/attestations/history?subject=" + quote(subject, safe=""))
 

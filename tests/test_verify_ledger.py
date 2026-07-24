@@ -8,7 +8,7 @@ import unittest
 
 import status_digest
 from attestation import GENESIS_HASH, AttestationEngine, link_hash
-from verify_ledger import current_ids, verify_bundle, verify_digest, _is_trustworthy
+from verify_ledger import current_ids, verify_bundle, verify_digest, verify_receipt, _is_trustworthy
 
 KEY = "operator-secret"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -164,6 +164,52 @@ class VerifyDigestTests(unittest.TestCase):
         report = verify_bundle(bundle, key=KEY)
         report["digest"] = verify_digest(bundle, key=KEY)
         self.assertTrue(_is_trustworthy(report, KEY))
+
+
+class VerifyReceiptTests(unittest.TestCase):
+    def setUp(self):
+        handle = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        handle.close()
+        self.db_path = handle.name
+        self.engine = AttestationEngine(self.db_path, signing_key=KEY)
+        self.engine.attest("subj-a", "the output", ["plan"], 0.9)
+        self.engine.attest("subj-b", "another", [], 0.4)
+
+    def tearDown(self):
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
+
+    def test_a_genuine_receipt_verifies_independently(self):
+        receipt = self.engine.receipt(1)
+        result = verify_receipt(receipt)
+        self.assertTrue(result["entry_hash_valid"])
+        self.assertEqual(result["attestation_id"], 1)
+        # asserted claims are echoed, not silently promoted to verified
+        self.assertIn("entry_intact", result["asserted"])
+
+    def test_content_binding_confirms_the_output(self):
+        receipt = self.engine.receipt(1)
+        self.assertTrue(verify_receipt(receipt, content="the output")["content_matches"])
+        self.assertFalse(verify_receipt(receipt, content="not the output")["content_matches"])
+        # without content, the binding is simply not asserted
+        self.assertIsNone(verify_receipt(receipt)["content_matches"])
+
+    def test_an_edited_receipt_fails_even_when_it_claims_intact(self):
+        receipt = self.engine.receipt(1)
+        # forge the content but keep the old (now-wrong) entry_hash and the
+        # asserted intact flags — recomputation catches what the claim hides
+        receipt["attestation"]["subject"] = "tampered"
+        receipt["entry_intact"] = True
+        receipt["chain_intact"] = True
+        result = verify_receipt(receipt)
+        self.assertFalse(result["entry_hash_valid"])
+        self.assertTrue(result["asserted"]["entry_intact"])  # the lie is preserved…
+        # …but the independent recomputation does not honour it
+
+    def test_a_forged_content_hash_breaks_binding(self):
+        receipt = self.engine.receipt(1)
+        receipt["attestation"]["sha256"] = "0" * 64
+        self.assertFalse(verify_receipt(receipt, content="the output")["content_matches"])
 
 
 class VerifyLedgerCliTests(unittest.TestCase):
