@@ -499,7 +499,8 @@
           <span class="dim">sha ${esc(a.sha256)}</span><br>
           chain ${data.chain_position}/${data.chain_length} · this entry ${data.entry_intact ? '<span class="ok">intact</span>' : '<span class="bad">TAMPERED</span>'}
           · ledger ${data.chain_intact ? '<span class="ok">ok</span>' : '<span class="bad">BROKEN</span>'}
-          · <span class="${data.sealed ? 'ok' : 'dim'}">${data.sealed ? 'SEALED' : 'unsealed'}</span>`;
+          · <span class="${data.sealed ? 'ok' : 'dim'}">${data.sealed ? 'SEALED' : 'unsealed'}</span>
+          · ${(data.lineage && data.lineage.is_current) ? '<span class="ok">current</span>' : '<span class="bad">superseded by #' + ((data.lineage && data.lineage.superseded_by) || []).join(', #') + '</span>'}`;
       });
 
       // ---- per-subject timeline (round 57) ----

@@ -394,8 +394,27 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertTrue(receipt["chain_intact"])
         # the receipt certifies its own entry, not just the whole chain
         self.assertTrue(receipt["entry_intact"])
+        # and carries supersession lineage — is this the current version? (round 73)
+        self.assertIn("lineage", receipt)
+        self.assertTrue(receipt["lineage"]["is_current"])
         # missing id -> 404
         self.assertEqual(self.client.get("/attestations/999999/receipt").status_code, 404)
+
+    def test_receipt_lineage_reflects_supersession(self):
+        engine = app_module.attestation_engine
+        v1 = engine.attest("receipt-lin", "one", ["plan"], 0.9)
+        v2 = engine.attest("receipt-lin", "two", ["plan"], 0.95)
+        token = self.client.post(
+            "/auth/register", data=json.dumps({"username": "receipt-lin-user"}),
+            content_type="application/json").get_json()["token"]
+        self.client.post(
+            f"/attestations/{v2['id']}/supersedes",
+            data=json.dumps({"old_id": v1["id"], "reason": "revised"}),
+            content_type="application/json",
+            headers={"Authorization": f"Bearer {token}"})
+        r1 = self.client.get(f"/attestations/{v1['id']}/receipt").get_json()
+        self.assertFalse(r1["lineage"]["is_current"])
+        self.assertEqual(r1["lineage"]["superseded_by"], [v2["id"]])
 
     def test_attestation_verify_entry_endpoint(self):
         engine = app_module.attestation_engine
@@ -1492,6 +1511,8 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("runCommand", body)
         self.assertIn("/status.json", body)
         self.assertIn("/attestations/lookup", body)
+        # including a per-item receipt command (round 77)
+        self.assertIn("/receipt", body)
 
     def test_console_renders_boot_splash(self):
         response = self.client.get("/console")
