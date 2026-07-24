@@ -1582,6 +1582,9 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("/attestations/lookup", body)
         # including a per-item receipt command (round 77)
         self.assertIn("/receipt", body)
+        # and the signed, portable posture digest, reachable from the terminal (round 0081)
+        self.assertIn('"/digest"', body)
+        self.assertIn("/status/digest", body)
 
     def test_becoming_page_renders(self):
         response = self.client.get("/becoming")

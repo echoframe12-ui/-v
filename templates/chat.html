@@ -120,7 +120,7 @@
         <div class="msg os"><div class="card">
           <span class="verdict attested">Observer online</span>
           <p class="statement">Send anything — a claim, a plan, a decision. I won't answer it. I'll <em>attest</em> it: convene a panel of models plus a rules engine, surface their dissent, hash the result, and hold it if confidence falls below <span class="hash">0.74</span>.</p>
-          <p class="statement" style="font-size:0.86rem;color:var(--dim)">Or <em>query the record</em>: type <span class="hash">/help</span>, <span class="hash">/status</span>, <span class="hash">/verify</span>, <span class="hash">/cvi</span>, <span class="hash">/lookup &lt;text&gt;</span>, <span class="hash">/receipt &lt;id&gt;</span>, <span class="hash">/report</span>.</p>
+          <p class="statement" style="font-size:0.86rem;color:var(--dim)">Or <em>query the record</em>: type <span class="hash">/help</span>, <span class="hash">/status</span>, <span class="hash">/verify</span>, <span class="hash">/cvi</span>, <span class="hash">/lookup &lt;text&gt;</span>, <span class="hash">/receipt &lt;id&gt;</span>, <span class="hash">/report</span>, <span class="hash">/digest</span>.</p>
           <div class="facts"><span><span class="k">threshold</span> <span class="hash">0.74</span></span><span><span class="k">render delay</span> 2500ms (the cost of verification)</span></div>
         </div></div>
       </div>
@@ -216,6 +216,7 @@
         "/lookup": "was this exact text attested?  /lookup <text>",
         "/receipt": "the per-item proof for an attestation  /receipt <id>",
         "/report": "the full human trust report",
+        "/digest": "the signed, portable posture proof",
       };
       const pill = (cls, label) => `<span class="verdict ${cls}">${esc(label)}</span>`;
       const fact = (k, v) => `<span><span class="k">${k}</span> ${v}</span>`;
@@ -270,6 +271,14 @@
           else if (cmd === "/report") {
             const md = await getText("/report");
             card.innerHTML = `${pill("attested", "trust report")}<pre style="white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:var(--dim);margin:0.6rem 0 0;line-height:1.5">${esc(md)}</pre>`;
+          }
+          else if (cmd === "/digest") {
+            const d = await getJSON("/status/digest");
+            const cls = d.posture === "TRUSTWORTHY" ? "attested" : (d.posture === "BROKEN" ? "broken" : "held");
+            const sig = d.signed ? `<span class="hash">${esc(d.signature.slice(0,18))}…</span>` : "unsigned";
+            card.innerHTML = `${pill(cls, "digest · " + d.posture)}
+              <p class="statement">A portable, ${d.signed ? "signed" : "unsigned"} snapshot of the posture — hand it to anyone and they can confirm it came from here, no service needed.</p>
+              <div class="facts">${fact("cvi", d.cvi.toFixed(2))} ${fact("sourced", Math.round(d.sourced_ratio*100)+"%")} ${fact("dissent", Math.round(d.dissent_rate*100)+"%")} ${fact("held", d.held_pending)} ${fact("sig", sig)}</div>`;
           }
           else { card.innerHTML = pill("broken", "unknown") + `<p class="statement">No such command. Try <span class="hash">/help</span>.</p>`; }
         } catch (e) {
