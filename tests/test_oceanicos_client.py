@@ -6,9 +6,16 @@ from oceanicos_client import OceanicOSClient, OceanicOSError
 
 
 def _flask_opener(method, path, headers, json):
-    """Transport that speaks to the real routes via the Flask test client."""
+    """Transport that speaks to the real routes via the Flask test client.
+
+    Mirrors the default requests opener: parsed JSON when the body is JSON, else
+    the raw text (so text/markdown endpoints like /report round-trip).
+    """
     resp = app.test_client().open(path, method=method, headers=headers, json=json)
-    return resp.status_code, resp.get_json()
+    body = resp.get_json(silent=True)
+    if body is None:
+        body = resp.get_data(as_text=True)
+    return resp.status_code, body
 
 
 class OceanicOSClientTests(unittest.TestCase):
@@ -23,6 +30,17 @@ class OceanicOSClientTests(unittest.TestCase):
         self.assertEqual(self.kai.doctrine()["invariant"], "Continuous Becoming")
         self.assertIn("intact", self.kai.verify())
         self.assertIn("sourced_ratio", self.kai.stats())
+        # the report is Markdown text, not JSON — the opener round-trips it
+        self.assertIn("# OceanicOS Trust Report", self.kai.report())
+
+    def test_supersession_and_lineage_via_client(self):
+        eng = app_module.attestation_engine
+        v1 = eng.attest("client-charter", "one", ["plan"], 0.9)
+        v2 = eng.attest("client-charter", "two", ["plan"], 0.95)
+        self.kai.register("client-super")
+        self.kai.supersede(v2["id"], v1["id"], "re-verified")
+        self.assertFalse(self.kai.lineage(v1["id"])["is_current"])
+        self.assertTrue(self.kai.lineage(v2["id"])["is_current"])
 
     def test_register_sets_token_and_enables_authed_calls(self):
         token = self.kai.register("client-analyst")

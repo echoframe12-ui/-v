@@ -110,12 +110,20 @@ class OceanicOSClient:
     def receipt(self, att_id: int) -> Any:
         return self._call("GET", f"/attestations/{int(att_id)}/receipt")
 
+    def lineage(self, att_id: int) -> Any:
+        """Supersession lineage — is this the current verified version?"""
+        return self._call("GET", f"/attestations/{int(att_id)}/lineage")
+
     def subject_history(self, subject: str) -> Any:
         return self._call("GET", "/attestations/history?subject=" + quote(subject, safe=""))
 
     def lookup(self, content: str) -> Any:
         """Content-addressable lookup — was this exact output attested?"""
         return self._call("POST", "/attestations/lookup", {"content": content})
+
+    def report(self) -> str:
+        """The composed, human-readable Markdown trust report (`/report`)."""
+        return self._call("GET", "/report")
 
     # ---- writes (authed) ----
     def consensus(self, prompt: str) -> Any:
@@ -125,3 +133,10 @@ class OceanicOSClient:
     def attention(self) -> Any:
         """The steward attention worklist (requires an admin token)."""
         return self._call("GET", "/attestations/attention")
+
+    def supersede(self, new_id: int, old_id: int, reason: str) -> Any:
+        """Record that attestation `new_id` supersedes `old_id` (requires a token)."""
+        return self._call(
+            "POST", f"/attestations/{int(new_id)}/supersedes",
+            {"old_id": int(old_id), "reason": reason},
+        )
