@@ -898,6 +898,24 @@ def cvi_badge():
     return resp
 
 
+@app.route("/badge/posture.svg", methods=["GET"])
+def posture_badge():
+    """The live trust posture as an embeddable SVG badge — the whole-record verdict.
+
+    Grey `verification` label, coloured verdict: `trustworthy` green,
+    `intact` amber, `broken` red — the same posture the status board and the
+    signed digest compute (`status_digest.posture_of`). Companion to the CVI
+    badge: one shows the index, this shows the verdict. `?label=` overrides the
+    left cell; sent no-cache so an embed is never stale.
+    """
+    posture = status_digest.posture_of(attestation_engine.verify())
+    label = request.args.get("label", "verification")
+    svg = badge.render(label, posture.lower(), badge.posture_color(posture))
+    resp = Response(svg, mimetype=badge.CONTENT_TYPE)
+    resp.headers["Cache-Control"] = "no-cache, max-age=0"
+    return resp
+
+
 def _status_snapshot() -> dict[str, Any]:
     """Assemble the live trust posture once, for both `/status` and `/status.json`.
 

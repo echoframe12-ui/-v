@@ -23,6 +23,16 @@ _RED = "#f85149"
 _GREY = "#8b949e"
 
 
+def posture_color(posture):
+    """Map a trust posture verdict to a colour.
+
+    `TRUSTWORTHY` (chain intact, sealed head signed) is green; `INTACT` (intact
+    but not yet sealed) is amber; `BROKEN` is red; anything else grey. The verdict
+    is the whole-record answer the status board and digest already compute.
+    """
+    return {"TRUSTWORTHY": _GREEN, "INTACT": _YELLOW, "BROKEN": _RED}.get(posture, _GREY)
+
+
 def cvi_color(value):
     """Map a CVI (0–1) to a colour band anchored on the 0.74 threshold.
 

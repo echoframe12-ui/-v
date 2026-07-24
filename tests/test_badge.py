@@ -3,6 +3,16 @@ import unittest
 import badge
 
 
+class PostureColorTests(unittest.TestCase):
+    def test_verdicts_map_to_colours(self):
+        self.assertEqual(badge.posture_color("TRUSTWORTHY"), "#3fb950")
+        self.assertEqual(badge.posture_color("INTACT"), "#d29922")
+        self.assertEqual(badge.posture_color("BROKEN"), "#f85149")
+
+    def test_unknown_is_grey(self):
+        self.assertEqual(badge.posture_color("whatever"), "#8b949e")
+
+
 class CviColorTests(unittest.TestCase):
     def test_at_or_above_threshold_is_green(self):
         self.assertEqual(badge.cvi_color(0.74), "#3fb950")
