@@ -289,6 +289,18 @@ def console():
     return render_template("index.html")
 
 
+@app.route("/becoming", methods=["GET"])
+def becoming():
+    """The Blessings-in-Disguise narrative — the master sequence, wired to live data.
+
+    A cosmic journey (Source → Forms → Self-Recognition → Blessing → Observer →
+    Continuous Becoming) whose stations are filled by the live platform: the CVI,
+    the attestations, the self-attesting record, the held queue as blessings, the
+    Observer, and the compounding footprint. A pure client over public endpoints.
+    """
+    return render_template("becoming.html")
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify(service.health())
