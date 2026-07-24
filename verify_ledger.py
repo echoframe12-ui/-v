@@ -82,6 +82,17 @@ def verify_bundle(bundle: dict[str, Any], key: str | None = None) -> dict[str, A
     }
 
 
+def current_ids(bundle: dict[str, Any]) -> list[int]:
+    """The attestation ids no supersession replaces — the current versions.
+
+    Read purely from the bundle's `attestations` and `supersessions`, so an
+    offline holder can tell which versions are current without a service. A
+    bundle with no supersession graph reports every attestation as current.
+    """
+    superseded = {s["old_id"] for s in bundle.get("supersessions", [])}
+    return [a["id"] for a in bundle.get("attestations", []) if a["id"] not in superseded]
+
+
 def _is_trustworthy(report: dict[str, Any], key: str | None) -> bool:
     """Success = chain intact, and — when a key was given — trustworthy too."""
     if not report["intact"]:
@@ -108,6 +119,12 @@ def main(argv: list[str] | None = None) -> int:
     bundle = json.loads(raw)
 
     report = verify_bundle(bundle, key=args.key)
+    # surface the version graph when the bundle carries one — verification of the
+    # chain is unchanged; this only reports which attestations are current.
+    if bundle.get("supersessions"):
+        current = current_ids(bundle)
+        report["current_attestations"] = len(current)
+        report["superseded_attestations"] = len(bundle.get("attestations", [])) - len(current)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if _is_trustworthy(report, args.key) else 1
 

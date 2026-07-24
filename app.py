@@ -811,11 +811,14 @@ def export_attestations():
     """The whole sealed attestation record as a portable, offline-verifiable bundle.
 
     Carries every attestation and checkpoint so the chain and its seals can be
-    checked with `verify_ledger.py` — no service, no database. The ground truth
-    survives the system.
+    checked with `verify_ledger.py` — no service, no database — plus the
+    supersession graph, so an offline holder can also tell which attestations are
+    current. The ground truth, including its version history, survives the system.
     """
+    bundle = attestation_engine.export()
+    bundle["supersessions"] = supersession_log.list()
     return Response(
-        json.dumps(attestation_engine.export(), indent=2),
+        json.dumps(bundle, indent=2),
         mimetype="application/json",
         headers={
             "Content-Disposition": "attachment; filename=oceanicos-attestations.json"

@@ -1009,6 +1009,9 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertEqual(bundle["version"], 1)
         self.assertIn("attestations", bundle)
         self.assertIn("checkpoints", bundle)
+        # the portable bundle also carries the supersession graph (round 80)
+        self.assertIn("supersessions", bundle)
+        self.assertIsInstance(bundle["supersessions"], list)
 
     def test_vaas_endpoints(self):
         cvi = self.client.get("/cvi")
