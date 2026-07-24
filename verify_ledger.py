@@ -131,6 +131,28 @@ def current_ids(bundle: dict[str, Any]) -> list[int]:
     return [a["id"] for a in bundle.get("attestations", []) if a["id"] not in superseded]
 
 
+def full_report(bundle: dict[str, Any], key: str | None = None) -> dict[str, Any]:
+    """The complete verification report for a bundle — one source for both verifiers.
+
+    Assembles chain integrity and the seal (`verify_bundle`), the version-graph
+    counts when the bundle carries supersessions, and the embedded-digest
+    cross-check when it carries a digest. The offline CLI (`main`) and the online
+    twin (`/attestations/verify-bundle`) both call this, so a caller gets the same
+    report whichever verifier they reach — the twin cannot fall behind the CLI.
+    """
+    report = verify_bundle(bundle, key=key)
+    # surface the version graph when the bundle carries one — chain verification is
+    # unchanged; this only reports which attestations are current.
+    if bundle.get("supersessions"):
+        current = current_ids(bundle)
+        report["current_attestations"] = len(current)
+        report["superseded_attestations"] = len(bundle.get("attestations", [])) - len(current)
+    # cross-check the embedded signed posture digest against this chain, when present
+    if bundle.get("digest"):
+        report["digest"] = verify_digest(bundle, key=key)
+    return report
+
+
 def _is_trustworthy(report: dict[str, Any], key: str | None) -> bool:
     """Success = chain intact, and — when a key was given — trustworthy too.
 
@@ -168,16 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     raw = sys.stdin.read() if args.bundle == "-" else open(args.bundle).read()
     bundle = json.loads(raw)
 
-    report = verify_bundle(bundle, key=args.key)
-    # surface the version graph when the bundle carries one — verification of the
-    # chain is unchanged; this only reports which attestations are current.
-    if bundle.get("supersessions"):
-        current = current_ids(bundle)
-        report["current_attestations"] = len(current)
-        report["superseded_attestations"] = len(bundle.get("attestations", [])) - len(current)
-    # cross-check the embedded signed posture digest against this chain, when present
-    if bundle.get("digest"):
-        report["digest"] = verify_digest(bundle, key=args.key)
+    report = full_report(bundle, key=args.key)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if _is_trustworthy(report, args.key) else 1
 
