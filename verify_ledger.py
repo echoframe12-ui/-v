@@ -19,6 +19,7 @@ non-zero otherwise — so it doubles as a CI or cron integrity gate.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import hmac
 import json
 import sys
@@ -80,6 +81,52 @@ def verify_bundle(bundle: dict[str, Any], key: str | None = None) -> dict[str, A
             "head_reproduced": head_reproduced,
         },
         "trustworthy": bool(chain["intact"] and head_reproduced and signature_valid),
+    }
+
+
+def verify_receipt(receipt: dict[str, Any], content: str | None = None) -> dict[str, Any]:
+    """Independently verify a single attestation receipt — recompute, don't trust.
+
+    The per-item receipt (`/attestations/{id}/receipt`) is the proof a client
+    presents for one record. This confirms it offline from the receipt alone, by
+    recomputing the entry's own `link_hash` from its content fields and recorded
+    predecessor rather than believing the receipt's asserted `entry_intact` flag —
+    a fabricated receipt whose content was edited fails here even though it claims
+    to be intact. Given the original `content`, it also binds the receipt to that
+    content by recomputing its SHA-256.
+
+    Pure over the receipt. Reports:
+    - `entry_hash_valid`: the recomputed `link_hash(prev_hash, entry)` equals the
+      receipt's stored `entry_hash` — the entry's content and prev-linkage are
+      self-consistent, independent of any service.
+    - `content_matches`: `sha256(content)` equals the entry's `sha256` (only when
+      `content` is supplied; otherwise `None`).
+    - `asserted`: the receipt's own chain-wide claims (`entry_intact`,
+      `chain_intact`, `sealed`) — echoed, not re-derived, since proving them needs
+      the full ledger, not one receipt. Named honestly so a caller does not mistake
+      an echo for an independent check.
+    """
+    entry = receipt.get("attestation") or {}
+    recomputed = None
+    try:
+        recomputed = link_hash(entry["prev_hash"], entry)
+    except (KeyError, TypeError):
+        recomputed = None
+    entry_hash_valid = recomputed is not None and recomputed == entry.get("entry_hash")
+    content_matches = (
+        None if content is None
+        else hashlib.sha256(content.encode()).hexdigest() == entry.get("sha256")
+    )
+    return {
+        "attestation_id": entry.get("id"),
+        "sha256": entry.get("sha256"),
+        "entry_hash_valid": bool(entry_hash_valid),
+        "content_matches": content_matches,
+        "asserted": {
+            "entry_intact": receipt.get("entry_intact"),
+            "chain_intact": receipt.get("chain_intact"),
+            "sealed": receipt.get("sealed"),
+        },
     }
 
 
