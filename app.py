@@ -1353,6 +1353,10 @@ def run_builder():
 
     result = builder.run(task, context, actor=g.actor)
     usage_log.record(g.actor, "build", g.tier, task)
+    # dissent is data — record the panel's disagreement from the build too, not
+    # only from explicit /models/consensus calls (prompt hashed, never stored raw).
+    if isinstance(result.get("consensus"), dict):
+        consensus_log.record(task, result["consensus"])
     _snapshot_cvi(g.actor)  # platform + this actor's trend
     result["dashboard"] = dashboard.summary()
     resp = jsonify(result)
