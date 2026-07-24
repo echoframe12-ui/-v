@@ -37,6 +37,35 @@ class CviColorTests(unittest.TestCase):
         self.assertEqual(badge.cvi_color(float("nan")), "#8b949e")
 
 
+class AttestationMessageTests(unittest.TestCase):
+    def _receipt(self, status, confidence, entry_intact=True, chain_intact=True):
+        return {
+            "attestation": {"status": status, "confidence": confidence},
+            "entry_intact": entry_intact,
+            "chain_intact": chain_intact,
+        }
+
+    def test_attested_is_green_with_confidence(self):
+        msg, color = badge.attestation_message(self._receipt("attested", 0.95))
+        self.assertEqual(msg, "attested 0.95")
+        self.assertEqual(color, "#3fb950")
+
+    def test_held_takes_the_threshold_aligned_colour(self):
+        msg, color = badge.attestation_message(self._receipt("held", 0.61))
+        self.assertEqual(msg, "held 0.61")
+        self.assertEqual(color, "#d29922")  # cvi_color(0.61) — yellow, never green
+        _, low = badge.attestation_message(self._receipt("held", 0.30))
+        self.assertEqual(low, "#f85149")  # red
+
+    def test_tampered_reads_red_regardless_of_confidence(self):
+        msg, color = badge.attestation_message(self._receipt("attested", 0.99, entry_intact=False))
+        self.assertEqual(msg, "tampered")
+        self.assertEqual(color, "#f85149")
+        # a broken chain voids it too
+        _, c2 = badge.attestation_message(self._receipt("attested", 0.99, chain_intact=False))
+        self.assertEqual(c2, "#f85149")
+
+
 class RenderTests(unittest.TestCase):
     def test_render_is_svg_with_both_cells(self):
         svg = badge.render("verification", "0.82", "#3fb950")
