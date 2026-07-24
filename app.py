@@ -1007,8 +1007,8 @@ def status_json():
 def status_digest_endpoint():
     """A signed, portable digest of the platform's own posture — attest, don't assert.
 
-    A compact canonical snapshot (posture, CVI, source coverage, chain state, held
-    queue, checkpoint head, timestamp) plus an operator-key HMAC over it, so a
+    A compact canonical snapshot (posture, CVI, source coverage, dissent rate, chain
+    state, held queue, checkpoint head, timestamp) plus an operator-key HMAC over it, so a
     third party handed the digest can confirm it genuinely came from this platform
     at that time rather than being fabricated. `signed` is false (and `signature`
     null) when no `OCEANICOS_SIGNING_KEY` is configured — the platform never claims
@@ -1020,6 +1020,7 @@ def status_digest_endpoint():
         verify=snap["verify"],
         cvi_value=snap["cvi"]["cvi"],
         sourced_ratio=snap["sourced_ratio"],
+        dissent_rate=consensus_log.stats()["dissent_rate"],
         held_pending=snap["held_pending"],
         held_breached=snap["held_breached"],
         checkpoint_head=cp["head_hash"] if cp else None,

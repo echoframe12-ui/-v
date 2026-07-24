@@ -1156,12 +1156,17 @@ class OceanicOSAppTests(unittest.TestCase):
             data = self.client.get("/status/digest").get_json()
         self.assertTrue(data["signed"])
         self.assertIn(data["posture"], ("TRUSTWORTHY", "INTACT", "BROKEN"))
+        # the recorded dissent rate is part of the signed posture, not just the report
+        self.assertIn("dissent_rate", data)
+        self.assertEqual(data["dissent_rate"], app_module.consensus_log.stats()["dissent_rate"])
         # the signature verifies under the key and fails under a wrong one
         sig = data["signature"]
         self.assertTrue(status_digest.verify(data, sig, "digest-key"))
         self.assertFalse(status_digest.verify(data, sig, "wrong-key"))
         # tampering the posture invalidates the signature
         self.assertFalse(status_digest.verify({**data, "posture": "BROKEN"}, sig, "digest-key"))
+        # tampering the dissent rate invalidates it too — dissent is now signed
+        self.assertFalse(status_digest.verify({**data, "dissent_rate": 0.999}, sig, "digest-key"))
 
     def test_status_digest_unsigned_without_key(self):
         with patch.dict("os.environ", {}, clear=False):

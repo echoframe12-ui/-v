@@ -7,6 +7,7 @@ BASE = {
     "posture": "TRUSTWORTHY",
     "cvi": 0.9,
     "sourced_ratio": 0.75,
+    "dissent_rate": 0.25,
     "chain_intact": True,
     "trustworthy": True,
     "chain_length": 4,
@@ -40,6 +41,7 @@ class PostureTests(unittest.TestCase):
             verify={"intact": True, "trustworthy": True, "length": 3},
             cvi_value=0.9,
             sourced_ratio=0.5,
+            dissent_rate=0.5,
             held_pending=1,
             held_breached=0,
             checkpoint_head="h",
@@ -48,6 +50,7 @@ class PostureTests(unittest.TestCase):
         self.assertEqual(set(payload), set(status_digest.SIGNABLE_FIELDS))
         self.assertEqual(payload["posture"], "TRUSTWORTHY")
         self.assertEqual(payload["chain_length"], 3)
+        self.assertEqual(payload["dissent_rate"], 0.5)
 
 
 class SignVerifyTests(unittest.TestCase):
