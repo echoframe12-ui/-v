@@ -273,9 +273,12 @@ def _cmd_gate(argv: list[str]) -> int:
 
     Unlike `verify` (chain integrity alone), this is a policy gate — it can also
     require the signed-checkpoint `trustworthy` state and a minimum CVI, so a
-    build fails when trust *regresses*, not only when the chain breaks. Released
-    held items are credited to the CVI, matching what the service reports. Prints
-    PASS/FAIL with the reasons and exits 0 (pass) or 1 (fail).
+    build fails when trust *regresses*, not only when the chain breaks. The panel's
+    dissent rate is always reported, and a team may opt to gate on it
+    (`--max-dissent-rate`) — dissent is data, not failure, unless someone chooses to
+    treat a fracturing panel as one. Released held items are credited to the CVI,
+    matching what the service reports. Prints PASS/FAIL with the reasons and exits
+    0 (pass) or 1 (fail).
     """
     parser = argparse.ArgumentParser(prog="oceanic-os gate")
     parser.add_argument(
@@ -302,6 +305,11 @@ def _cmd_gate(argv: list[str]) -> int:
         "--max-cvi-drop", type=float, default=None,
         help="fail if the CVI has fallen more than this far below its recorded peak",
     )
+    parser.add_argument(
+        "--max-dissent-rate", type=float, default=None,
+        help="fail if the recorded panel dissent rate exceeds this ceiling (0-1); "
+        "opt-in — dissent is data, not failure, unless a team chooses to gate on it",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
@@ -311,6 +319,7 @@ def _cmd_gate(argv: list[str]) -> int:
     released = review_log.released_ids()
     cvi = engine.cvi(released_ids=released)
     stats = engine.stats()
+    dissent_rate = ConsensusLog(_db_path()).stats()["dissent_rate"]
     held_pending, held_breached = _held_health(engine, review_log, released)
 
     # CVI peak from the recorded trend — the baseline a regression is measured against
@@ -339,6 +348,8 @@ def _cmd_gate(argv: list[str]) -> int:
         reasons.append(f"held_pending {held_pending} over limit {args.max_held_pending}")
     if args.no_sla_breach and held_breached:
         reasons.append(f"{held_breached} held attestation(s) past the review SLA")
+    if args.max_dissent_rate is not None and dissent_rate > args.max_dissent_rate:
+        reasons.append(f"dissent_rate {dissent_rate} over ceiling {args.max_dissent_rate}")
     passed = not reasons
 
     report = {
@@ -348,6 +359,7 @@ def _cmd_gate(argv: list[str]) -> int:
         "cvi": cvi["cvi"],
         "cvi_peak": cvi_peak,
         "sourced_ratio": stats["sourced_ratio"],
+        "dissent_rate": dissent_rate,
         "held_pending": held_pending,
         "held_breached": held_breached,
         "length": verify["length"],
@@ -358,6 +370,7 @@ def _cmd_gate(argv: list[str]) -> int:
             "max_held_pending": args.max_held_pending,
             "no_sla_breach": args.no_sla_breach,
             "max_cvi_drop": args.max_cvi_drop,
+            "max_dissent_rate": args.max_dissent_rate,
         },
         "reasons": reasons,
     }
@@ -365,7 +378,7 @@ def _cmd_gate(argv: list[str]) -> int:
         report,
         args.json,
         lambda r: f"gate: {'PASS' if r['passed'] else 'FAIL'}"
-        f" · cvi {r['cvi']} · sourced {r['sourced_ratio']}"
+        f" · cvi {r['cvi']} · sourced {r['sourced_ratio']} · dissent {r['dissent_rate']}"
         f" · held {r['held_pending']} ({r['held_breached']} past SLA) · length {r['length']}"
         f" · {'trustworthy' if r['trustworthy'] else ('intact' if r['intact'] else 'BROKEN')}"
         + (f" · {'; '.join(r['reasons'])}" if r["reasons"] else ""),
