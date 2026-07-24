@@ -1044,6 +1044,16 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("trust", body)
         self.assertIn('aria-label="trust:', body)
 
+    def test_posture_badge_shows_the_verdict(self):
+        resp = self.client.get("/badge/posture.svg")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.mimetype, "image/svg+xml")
+        self.assertIn("no-cache", resp.headers.get("Cache-Control", ""))
+        body = resp.get_data(as_text=True)
+        # the verdict is one of the three, lowercased into the badge
+        self.assertTrue(any(v in body for v in ("trustworthy", "intact", "broken")))
+        self.assertTrue(body.startswith("<svg"))
+
     def test_status_page_renders_trust_posture(self):
         # seed a clean, high-confidence entry so the posture is well-defined
         app_module.attestation_engine.attest("status-doc", "body", ["plan"], 0.9)
