@@ -6,8 +6,9 @@ import sys
 import tempfile
 import unittest
 
+import status_digest
 from attestation import GENESIS_HASH, AttestationEngine, link_hash
-from verify_ledger import current_ids, verify_bundle
+from verify_ledger import current_ids, verify_bundle, verify_digest, _is_trustworthy
 
 KEY = "operator-secret"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -97,6 +98,72 @@ class VerifyBundleTests(unittest.TestCase):
         finally:
             if os.path.exists(engine_path):
                 os.remove(engine_path)
+
+
+def _attach_digest(bundle, key=KEY, **override):
+    """Embed a signed posture digest that matches the bundle, minus any overrides."""
+    cp_head = bundle["checkpoints"][-1]["head_hash"] if bundle["checkpoints"] else None
+    payload = status_digest.build_payload(
+        verify={"intact": True, "trustworthy": True, "length": len(bundle["attestations"])},
+        cvi_value=0.9, sourced_ratio=1.0, dissent_rate=0.0,
+        held_pending=0, held_breached=0,
+        checkpoint_head=cp_head,
+        generated_at="2026-07-24T00:00:00+00:00",
+    )
+    payload.update(override)  # tamper a signable field before signing, if asked
+    signed = bundle.get("_sign_key", key)
+    sig = status_digest.sign(signed, payload) if signed else None
+    out = copy.deepcopy(bundle)
+    out["digest"] = {**payload, "signed": sig is not None, "signature": sig}
+    return out
+
+
+class VerifyDigestTests(unittest.TestCase):
+    def setUp(self):
+        handle = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        handle.close()
+        self.db_path = handle.name
+        self.bundle = _make_bundle(self.db_path)
+
+    def tearDown(self):
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
+
+    def test_matching_digest_is_valid_and_consistent(self):
+        bundle = _attach_digest(self.bundle)
+        result = verify_digest(bundle, key=KEY)
+        self.assertTrue(result["signature_valid"])
+        self.assertTrue(result["chain_length_matches"])
+        self.assertTrue(result["checkpoint_matches"])
+        self.assertTrue(result["consistent"])
+
+    def test_digest_claiming_a_different_length_is_inconsistent(self):
+        # the signed posture says the chain is longer than the bundle actually is
+        bundle = _attach_digest(self.bundle, chain_length=99)
+        result = verify_digest(bundle, key=KEY)
+        self.assertTrue(result["signature_valid"])  # genuinely signed…
+        self.assertFalse(result["chain_length_matches"])  # …but describes another chain
+        self.assertFalse(result["consistent"])
+
+    def test_wrong_key_invalidates_the_digest_signature(self):
+        bundle = _attach_digest(self.bundle)
+        result = verify_digest(bundle, key="not-the-key")
+        self.assertFalse(result["signature_valid"])
+        self.assertTrue(result["consistent"])  # consistency is key-independent
+
+    def test_inconsistent_digest_makes_the_bundle_untrustworthy(self):
+        bundle = _attach_digest(self.bundle, chain_length=99)
+        report = verify_bundle(bundle, key=KEY)
+        report["digest"] = verify_digest(bundle, key=KEY)
+        # the chain itself is fine, but its own signed summary contradicts it
+        self.assertTrue(report["intact"])
+        self.assertFalse(_is_trustworthy(report, KEY))
+
+    def test_consistent_digest_keeps_a_good_bundle_trustworthy(self):
+        bundle = _attach_digest(self.bundle)
+        report = verify_bundle(bundle, key=KEY)
+        report["digest"] = verify_digest(bundle, key=KEY)
+        self.assertTrue(_is_trustworthy(report, KEY))
 
 
 class VerifyLedgerCliTests(unittest.TestCase):

@@ -825,10 +825,13 @@ def export_attestations():
     Carries every attestation and checkpoint so the chain and its seals can be
     checked with `verify_ledger.py` — no service, no database — plus the
     supersession graph, so an offline holder can also tell which attestations are
-    current. The ground truth, including its version history, survives the system.
+    current, and a signed posture digest, so the verifier can confirm the
+    platform's own summary matches the chain it ships with. The ground truth,
+    including its version history and self-report, survives the system.
     """
     bundle = attestation_engine.export()
     bundle["supersessions"] = supersession_log.list()
+    bundle["digest"] = _status_digest_document()
     return Response(
         json.dumps(bundle, indent=2),
         mimetype="application/json",
@@ -1003,16 +1006,14 @@ def status_json():
     return jsonify(snapshot)
 
 
-@app.route("/status/digest", methods=["GET"])
-def status_digest_endpoint():
-    """A signed, portable digest of the platform's own posture — attest, don't assert.
+def _status_digest_document() -> dict[str, Any]:
+    """Build the signed posture digest — one source for the endpoint and the export.
 
-    A compact canonical snapshot (posture, CVI, source coverage, dissent rate, chain
-    state, held queue, checkpoint head, timestamp) plus an operator-key HMAC over it, so a
-    third party handed the digest can confirm it genuinely came from this platform
-    at that time rather than being fabricated. `signed` is false (and `signature`
-    null) when no `OCEANICOS_SIGNING_KEY` is configured — the platform never claims
-    a signature it cannot make. Verify with `status_digest.verify`.
+    Assembles the canonical payload from the live snapshot and the dissent ledger,
+    HMAC-signs it with the operator key when one is configured, and returns
+    `{**payload, "signed": ..., "signature": ...}`. Both `/status/digest` and the
+    export bundle call this, so the digest a caller fetches and the one embedded in
+    an exported bundle are produced the same way and cannot drift.
     """
     snap = _status_snapshot()
     cp = snap["checkpoint"]
@@ -1028,7 +1029,21 @@ def status_digest_endpoint():
     )
     key = os.getenv("OCEANICOS_SIGNING_KEY") or None
     signature = status_digest.sign(key, payload) if key else None
-    return jsonify({**payload, "signed": signature is not None, "signature": signature})
+    return {**payload, "signed": signature is not None, "signature": signature}
+
+
+@app.route("/status/digest", methods=["GET"])
+def status_digest_endpoint():
+    """A signed, portable digest of the platform's own posture — attest, don't assert.
+
+    A compact canonical snapshot (posture, CVI, source coverage, dissent rate, chain
+    state, held queue, checkpoint head, timestamp) plus an operator-key HMAC over it, so a
+    third party handed the digest can confirm it genuinely came from this platform
+    at that time rather than being fabricated. `signed` is false (and `signature`
+    null) when no `OCEANICOS_SIGNING_KEY` is configured — the platform never claims
+    a signature it cannot make. Verify with `status_digest.verify`.
+    """
+    return jsonify(_status_digest_document())
 
 
 @app.route("/metrics", methods=["GET"])

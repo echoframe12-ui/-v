@@ -1026,6 +1026,15 @@ class OceanicOSAppTests(unittest.TestCase):
         # the portable bundle also carries the supersession graph (round 80)
         self.assertIn("supersessions", bundle)
         self.assertIsInstance(bundle["supersessions"], list)
+        # …and a signed posture digest, cross-checkable against the chain (round 0078)
+        self.assertIn("digest", bundle)
+        from verify_ledger import verify_digest
+        with patch.dict("os.environ", {"OCEANICOS_SIGNING_KEY": "export-key"}, clear=False):
+            signed_bundle = self.client.get("/attestations/export").get_json()
+        check = verify_digest(signed_bundle, key="export-key")
+        self.assertTrue(check["signature_valid"])
+        self.assertTrue(check["consistent"])
+        self.assertEqual(signed_bundle["digest"]["chain_length"], len(signed_bundle["attestations"]))
 
     def test_vaas_endpoints(self):
         cvi = self.client.get("/cvi")
