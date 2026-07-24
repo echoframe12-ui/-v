@@ -94,6 +94,24 @@ class OceanicOSClient:
     def status_digest(self) -> Any:
         return self._call("GET", "/status/digest")
 
+    def verify_digest(self, key: str, digest: Optional[dict] = None) -> bool:
+        """Locally confirm a signed digest genuinely came from the platform.
+
+        The digest is meant to be handed to a third party over an untrusted
+        channel; this closes the loop for an SDK consumer — verification is a pure,
+        offline HMAC check needing only the shared operator `key`, no network call
+        and no trust in the transport that delivered the digest. Pass a `digest`
+        (e.g. one received out of band) or omit it to fetch the platform's current
+        one first. Returns False for an unsigned digest (no signature to check).
+
+        Uses the platform's own `status_digest` module to verify exactly the way
+        the service signs, so the client cannot drift from the signing scheme.
+        """
+        import status_digest
+
+        payload = digest if digest is not None else self.status_digest()
+        return status_digest.verify(payload, payload.get("signature"), key)
+
     def evolution(self) -> Any:
         return self._call("GET", "/evolution")
 

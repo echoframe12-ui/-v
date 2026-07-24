@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import app as app_module
 from app import app
@@ -77,6 +78,27 @@ class OceanicOSClientTests(unittest.TestCase):
             self.assertIsInstance(self.kai.attention(), list)
         finally:
             app_module.auth_registry.admin_users.discard("client-steward")
+
+    def test_verify_digest_locally(self):
+        app_module.attestation_engine.attest("client-digest", "body", ["plan"], 0.9)
+        with patch.dict("os.environ", {"OCEANICOS_SIGNING_KEY": "client-key"}, clear=False):
+            # fetch-and-verify in one call with the right key
+            self.assertTrue(self.kai.verify_digest("client-key"))
+            # a wrong key does not verify
+            self.assertFalse(self.kai.verify_digest("wrong-key"))
+            # a supplied, tampered digest does not verify
+            digest = self.kai.status_digest()
+        self.assertTrue(self.kai.verify_digest("client-key", {**digest}))
+        self.assertFalse(self.kai.verify_digest("client-key", {**digest, "posture": "BROKEN"}))
+        # the dissent rate is inside what the signature covers (round 0075)
+        self.assertFalse(self.kai.verify_digest("client-key", {**digest, "dissent_rate": 0.999}))
+
+    def test_verify_digest_false_when_unsigned(self):
+        # no signing key -> unsigned digest -> nothing to verify
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("OCEANICOS_SIGNING_KEY", None)
+            self.assertFalse(self.kai.verify_digest("any-key"))
 
     def test_error_raises_with_status(self):
         with self.assertRaises(OceanicOSError) as ctx:
