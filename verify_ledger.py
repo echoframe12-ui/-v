@@ -24,6 +24,7 @@ import json
 import sys
 from typing import Any
 
+import status_digest
 from attestation import GENESIS_HASH, checkpoint_signature, link_hash
 
 
@@ -82,6 +83,43 @@ def verify_bundle(bundle: dict[str, Any], key: str | None = None) -> dict[str, A
     }
 
 
+def verify_digest(bundle: dict[str, Any], key: str | None = None) -> dict[str, Any]:
+    """Cross-check a signed posture digest against the chain it ships with.
+
+    A bundle from `/attestations/export` embeds the platform's signed status digest
+    (`DECISIONS/0075`). Verifying the chain proves the record was not edited or
+    rewritten; this proves the platform's *own summary* of that record is both
+    genuine and consistent with what the bundle actually contains — a self-report
+    that disagrees with its own ledger is caught here.
+
+    Pure over the bundle. Reports:
+    - `signature_valid`: the digest's HMAC validates under `key` (requires a key).
+    - `chain_length_matches`: the digest's `chain_length` equals the bundle's
+      attestation count.
+    - `checkpoint_matches`: the digest's `checkpoint_head` equals the bundle's
+      latest checkpoint head (or both absent).
+    - `consistent`: the two cross-checks agree — the signed posture describes this
+      exact chain, independent of the key.
+    """
+    digest = bundle.get("digest") or {}
+    attestations = bundle.get("attestations", [])
+    checkpoints = bundle.get("checkpoints", [])
+    cp_head = checkpoints[-1]["head_hash"] if checkpoints else None
+
+    chain_length_matches = digest.get("chain_length") == len(attestations)
+    checkpoint_matches = digest.get("checkpoint_head") == cp_head
+    signature_valid = bool(key) and status_digest.verify(
+        digest, digest.get("signature"), key
+    )
+    return {
+        "present": True,
+        "signature_valid": signature_valid,
+        "chain_length_matches": chain_length_matches,
+        "checkpoint_matches": checkpoint_matches,
+        "consistent": bool(chain_length_matches and checkpoint_matches),
+    }
+
+
 def current_ids(bundle: dict[str, Any]) -> list[int]:
     """The attestation ids no supersession replaces — the current versions.
 
@@ -94,9 +132,21 @@ def current_ids(bundle: dict[str, Any]) -> list[int]:
 
 
 def _is_trustworthy(report: dict[str, Any], key: str | None) -> bool:
-    """Success = chain intact, and — when a key was given — trustworthy too."""
+    """Success = chain intact, and — when a key was given — trustworthy too.
+
+    An embedded digest that contradicts its own chain fails regardless of the key
+    (consistency is key-independent), and an invalid signature fails when a key was
+    given — a self-report that disagrees with the record it ships with is not a
+    trustworthy bundle, even if the chain itself is intact.
+    """
     if not report["intact"]:
         return False
+    digest = report.get("digest")
+    if digest:
+        if not digest["consistent"]:
+            return False
+        if key and not digest["signature_valid"]:
+            return False
     if key and report.get("checkpointed"):
         return bool(report.get("trustworthy"))
     return True
@@ -125,6 +175,9 @@ def main(argv: list[str] | None = None) -> int:
         current = current_ids(bundle)
         report["current_attestations"] = len(current)
         report["superseded_attestations"] = len(bundle.get("attestations", [])) - len(current)
+    # cross-check the embedded signed posture digest against this chain, when present
+    if bundle.get("digest"):
+        report["digest"] = verify_digest(bundle, key=args.key)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if _is_trustworthy(report, args.key) else 1
 
