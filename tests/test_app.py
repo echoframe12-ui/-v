@@ -1488,6 +1488,10 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("/builder/run", body)
         # it links to the full operator console
         self.assertIn('href="/console"', body)
+        # it is a verification terminal: slash-commands query the record
+        self.assertIn("runCommand", body)
+        self.assertIn("/status.json", body)
+        self.assertIn("/attestations/lookup", body)
 
     def test_console_renders_boot_splash(self):
         response = self.client.get("/console")
