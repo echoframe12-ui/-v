@@ -936,6 +936,32 @@ def posture_badge():
     return resp
 
 
+@app.route("/badge/attestation/<int:att_id>.svg", methods=["GET"])
+def attestation_badge(att_id):
+    """One attestation's verdict as an embeddable SVG badge — proof of a single output.
+
+    Where the CVI and posture badges show the whole record, this shows one record:
+    `attested 0.95` green, `held 0.42` in its threshold-aligned colour, or
+    `tampered` red if the entry or chain no longer verifies — computed from the same
+    receipt `/attestations/<id>/receipt` serves, so the badge cannot read green for a
+    record the receipt would flag. A customer embeds it beside a specific verified
+    output as living proof. `?label=` overrides the left cell; a missing id returns a
+    grey `not found` badge with 404. Sent no-cache so an embed is never stale.
+    """
+    receipt = attestation_engine.receipt(att_id)
+    label = request.args.get("label", f"attestation #{att_id}")
+    if receipt is None:
+        svg = badge.render(label, "not found", badge._GREY)
+        resp = Response(svg, mimetype=badge.CONTENT_TYPE, status=404)
+        resp.headers["Cache-Control"] = "no-cache, max-age=0"
+        return resp
+    message, color = badge.attestation_message(receipt)
+    svg = badge.render(label, message, color)
+    resp = Response(svg, mimetype=badge.CONTENT_TYPE)
+    resp.headers["Cache-Control"] = "no-cache, max-age=0"
+    return resp
+
+
 def _status_snapshot() -> dict[str, Any]:
     """Assemble the live trust posture once, for both `/status` and `/status.json`.
 

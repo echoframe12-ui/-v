@@ -1108,6 +1108,35 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertTrue(any(v in body for v in ("trustworthy", "intact", "broken")))
         self.assertTrue(body.startswith("<svg"))
 
+    def test_attestation_badge_shows_one_records_verdict(self):
+        att = app_module.attestation_engine.attest("badge-doc", "the output", ["plan"], 0.95)
+        held = app_module.attestation_engine.attest("weak-doc", "weak", [], 0.42)
+        # an attested record -> green badge with its confidence
+        resp = self.client.get(f"/badge/attestation/{att['id']}.svg")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.mimetype, "image/svg+xml")
+        self.assertIn("no-cache", resp.headers.get("Cache-Control", ""))
+        body = resp.get_data(as_text=True)
+        self.assertTrue(body.startswith("<svg"))
+        self.assertIn("attested 0.95", body)
+        self.assertIn("#3fb950", body)  # green — it earned it
+        self.assertIn(f"attestation #{att['id']}", body)
+        # a held record -> never green
+        held_body = self.client.get(f"/badge/attestation/{held['id']}.svg").get_data(as_text=True)
+        self.assertIn("held 0.42", held_body)
+        self.assertNotIn("#3fb950", held_body)
+        # a label override
+        self.assertIn("verified output", self.client.get(
+            f"/badge/attestation/{att['id']}.svg?label=verified+output").get_data(as_text=True))
+
+    def test_attestation_badge_missing_id_is_grey_404(self):
+        resp = self.client.get("/badge/attestation/999999.svg")
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.mimetype, "image/svg+xml")
+        body = resp.get_data(as_text=True)
+        self.assertIn("not found", body)
+        self.assertIn("#8b949e", body)  # grey
+
     def test_status_page_renders_trust_posture(self):
         # seed a clean, high-confidence entry so the posture is well-defined
         app_module.attestation_engine.attest("status-doc", "body", ["plan"], 0.9)

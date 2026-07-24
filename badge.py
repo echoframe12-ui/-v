@@ -56,6 +56,25 @@ def cvi_color(value):
     return _RED
 
 
+def attestation_message(receipt):
+    """Message and colour for a per-attestation badge, from its receipt.
+
+    Shows one record's own verdict as an embeddable proof: a tampered entry (or a
+    broken chain) reads red as `tampered` regardless of confidence — the proof is
+    void, so the badge must not dress it up. Otherwise an attested record is green
+    with its confidence, and a held record takes the threshold-aligned `cvi_color`
+    of its confidence, so a below-`0.74` item never reads green. Pure over the
+    receipt `verify_ledger`/the engine already produce.
+    """
+    att = receipt["attestation"]
+    conf = att["confidence"]
+    if not receipt.get("entry_intact", True) or not receipt.get("chain_intact", True):
+        return "tampered", _RED
+    if att["status"] == "attested":
+        return f"attested {conf:.2f}", _GREEN
+    return f"held {conf:.2f}", cvi_color(conf)
+
+
 def _escape(text):
     return (
         str(text)
