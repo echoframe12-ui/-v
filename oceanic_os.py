@@ -21,17 +21,22 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import adr
 import anchor
+import evolution
 import identity
 import models
 import readiness
+import report as trust_report
 import status_digest
 from datetime import datetime, timezone
 from attestation import CONFIDENCE_THRESHOLD, AttestationEngine
 from consensus_log import ConsensusLog
 from cvi_history import CviHistory
+from drift_audit import DriftAuditLog
 from held_reviews import HeldReviewLog, sla_status
 from models import ModelAdapter, ModelRouter
+from server import OceanicOSService
 
 DEFAULT_MANIFEST = "boot/init.v1"
 
@@ -386,6 +391,77 @@ def _cmd_gate(argv: list[str]) -> int:
     return 0 if passed else 1
 
 
+def _offline_ledger_counts(db: str) -> dict[str, int]:
+    """The compounding footprint's counts, read straight from the local ledgers.
+
+    Mirrors the service's `_ledger_counts` so the offline report footprints the
+    same eight append-only ledgers. `decisions` counts the ADRs present on disk, so
+    a bare database with no repo checkout simply reports none — honest about what is
+    and isn't in hand.
+    """
+    engine = AttestationEngine(db)
+    return {
+        "attestations": len(engine.list()),
+        "checkpoints": len(engine.list_checkpoints()),
+        "builds": len(OceanicOSService(db).list_builds()),
+        "drift_audits": len(DriftAuditLog(db).list()),
+        "cvi_history": len(CviHistory(db).list()),
+        "held_reviews": len(HeldReviewLog(db).list()),
+        "consensus_evaluations": ConsensusLog(db).stats()["evaluations"],
+        "decisions": len(adr.list_adr()),
+    }
+
+
+def _offline_snapshot(db: str) -> dict[str, Any]:
+    """Assemble the trust-posture snapshot from the local ledger, no service running.
+
+    Mirrors the app's `_status_snapshot` for exactly the fields `report.render`
+    reads, so the offline report says what the `/report` page would for the same
+    ledger. Released held items are credited to the CVI, matching the service.
+    """
+    engine = AttestationEngine(db)
+    review_log = HeldReviewLog(db)
+    released = review_log.released_ids()
+    verify = engine.verify()
+    cvi = engine.cvi(released_ids=released)
+    cvi_peak = max((point["cvi"] for point in CviHistory(db).list()), default=cvi["cvi"])
+    held_pending, held_breached = _held_health(engine, review_log, released)
+    return {
+        "posture": status_digest.posture_of(verify),
+        "verify": verify,
+        "cvi": cvi,
+        "cvi_peak": round(cvi_peak, 3),
+        "sourced_ratio": engine.stats()["sourced_ratio"],
+        "held_pending": held_pending,
+        "held_breached": held_breached,
+        "checkpoint": engine.latest_checkpoint(),
+        "audit": DriftAuditLog(db).latest(),
+        "threshold": CONFIDENCE_THRESHOLD,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+
+
+def _cmd_report(argv: list[str]) -> int:
+    """Render the human trust report offline, from the ledger — no service needed.
+
+    The Markdown counterpart to `verify`/`gate`/`digest`: the same composed report
+    `/report` serves — posture, the trust dimensions, the held queue, the seal and
+    last audit, and the compounding footprint — assembled straight from the local
+    database so cron or CI can attach a readable trust summary without a running
+    service. The ground truth survives the system, and now so does its human report.
+    """
+    parser = argparse.ArgumentParser(prog="oceanic-os report")
+    parser.parse_args(argv)
+    db = _db_path()
+    text = trust_report.render(
+        _offline_snapshot(db),
+        evolution.compounding(_offline_ledger_counts(db)),
+        ConsensusLog(db).stats(),
+    )
+    print(text)
+    return 0
+
+
 _COMMANDS = {
     "boot": _cmd_boot,
     "verify": _cmd_verify,
@@ -393,6 +469,7 @@ _COMMANDS = {
     "ready": _cmd_ready,
     "gate": _cmd_gate,
     "digest": _cmd_digest,
+    "report": _cmd_report,
 }
 
 

@@ -197,6 +197,39 @@ class SubcommandTests(unittest.TestCase):
         code_ok, _ = self._run(["gate", "--max-dissent-rate", "1.0"])
         self.assertEqual(code_ok, 0)
 
+    def test_report_renders_the_trust_report_offline(self):
+        engine = AttestationEngine(self.db_path, signing_key="report-key")
+        engine.attest("report-doc", "the body", ["plan"], 0.95)  # attested
+        engine.attest("held-doc", "weak", [], 0.4)               # held
+        engine.checkpoint()
+        code, out = self._run(["report"])
+        self.assertEqual(code, 0)
+        # the composed human report, straight from the ledger — no service running
+        self.assertIn("# OceanicOS Trust Report", out)
+        self.assertIn("## Posture:", out)
+        self.assertIn("CVI", out)
+        self.assertIn("Held queue", out)
+        self.assertIn("Compounding footprint", out)
+        # the footprint counts the real ledgers it just wrote
+        self.assertIn("| attestations | 2 |", out)
+        self.assertIn("| checkpoints | 1 |", out)
+
+    def test_report_matches_the_service_report_for_the_same_ledger(self):
+        # the offline report is a twin of /report — same posture and dimensions
+        import app as app_module
+        eng = AttestationEngine(self.db_path)
+        eng.attest("twin", "body", ["plan"], 0.9)
+        service_text = app_module.report.render(
+            app_module._status_snapshot(),
+            app_module.evolution.compounding(app_module._ledger_counts()),
+            app_module.consensus_log.stats(),
+        )
+        _, cli_text = self._run(["report"])
+        # both are the same document shape with the same posture line
+        for marker in ("# OceanicOS Trust Report", "## Posture:", "| CVI |", "| Source coverage |"):
+            self.assertIn(marker, service_text)
+            self.assertIn(marker, cli_text)
+
     def test_digest_emits_signed_and_verifies_roundtrip(self):
         import status_digest
         AttestationEngine(self.db_path).attest("a", "c", ["plan"], 0.9)
