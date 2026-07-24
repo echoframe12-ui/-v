@@ -28,6 +28,7 @@ import readiness
 import status_digest
 from datetime import datetime, timezone
 from attestation import CONFIDENCE_THRESHOLD, AttestationEngine
+from consensus_log import ConsensusLog
 from cvi_history import CviHistory
 from held_reviews import HeldReviewLog, sla_status
 from models import ModelAdapter, ModelRouter
@@ -256,6 +257,7 @@ def _cmd_digest(argv: list[str]) -> int:
         verify=engine.verify(),
         cvi_value=engine.cvi(released_ids=released)["cvi"],
         sourced_ratio=engine.stats()["sourced_ratio"],
+        dissent_rate=ConsensusLog(_db_path()).stats()["dissent_rate"],
         held_pending=held_pending,
         held_breached=held_breached,
         checkpoint_head=cp["head_hash"] if cp else None,
