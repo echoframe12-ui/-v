@@ -95,6 +95,15 @@ MAPPING: list[dict[str, Any]] = [
         "system": "the Living Agnostic Charter — the decision log as constitution",
         "evidence": {"endpoints": ["/adr", "/evolution"], "modules": ["adr"]},
     },
+    {
+        "principle": "Continuous Becoming",
+        "system": "the record compounding over time — trust made watchable, not asserted: "
+        "the footprint, the index, and the verdict, each over time on one timeline",
+        "evidence": {
+            "endpoints": ["/timeline", "/evolution/history", "/posture/history"],
+            "modules": ["evolution_history"],
+        },
+    },
 ]
 
 # Each layer of the Doctrine, mapped to the code that implements it. `shipped`
@@ -188,12 +197,18 @@ LAYERS: list[dict[str, Any]] = [
     {
         "layer": "Final State · Continuous Becoming",
         "principle": "Observer runs, the universe compiles via localhost, Exit 0, "
-        "continue — recompile, then compound: the append-only ledgers only grow.",
+        "continue — recompile, then compound: the append-only ledgers only grow, and "
+        "the growth is now a curve you can watch — the record's footprint, the CVI, and "
+        "the posture's own transitions, each remembered over time and gathered on one "
+        "timeline.",
         "shipped": True,
         "evidence": {
-            "endpoints": ["/status", "/status.json", "/metrics", "/evolution"],
-            "modules": ["status_digest", "evolution"],
-            "decisions": [44, 45],
+            "endpoints": [
+                "/status", "/status.json", "/metrics", "/evolution",
+                "/evolution/history", "/posture/history", "/timeline",
+            ],
+            "modules": ["status_digest", "evolution", "evolution_history"],
+            "decisions": [44, 45, 87, 89, 90],
         },
     },
 ]
