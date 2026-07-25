@@ -1706,6 +1706,22 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn('"/digest"', body)
         self.assertIn("/status/digest", body)
 
+    def test_timeline_page_renders(self):
+        response = self.client.get("/timeline")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.content_type)
+        body = response.get_data(as_text=True)
+        self.assertIn("Trust Timeline", body)
+        # the three headline signals, each over time, on one page
+        self.assertIn("/cvi/history", body)
+        self.assertIn("/evolution/history", body)
+        self.assertIn("/posture/history", body)
+        # the three panels
+        self.assertIn('id="cvi-chart"', body)
+        self.assertIn('id="evo-chart"', body)
+        self.assertIn('id="pos-pills"', body)
+        self.assertIn('href="/"', body)  # links back to the terminal
+
     def test_becoming_page_renders(self):
         response = self.client.get("/becoming")
         self.assertEqual(response.status_code, 200)
