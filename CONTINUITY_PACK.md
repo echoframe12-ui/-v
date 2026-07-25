@@ -1,0 +1,166 @@
+# Ω∞ Oceanic — Continuity Pack
+
+> **A → B → C → A → ∞**
+>
+> The repository is the persistent memory of the project. A new coding environment must continue from verified state, never assume completion, and never restart the project unnecessarily.
+
+## Purpose
+
+This document is the portable handoff protocol for continuing Ω∞ Oceanic across GitHub accounts, repositories, coding agents, and token-limited development environments.
+
+## Continuation Protocol
+
+Every new workspace follows this sequence:
+
+1. **Read** the continuity documents and recent Git history.
+2. **Inspect** the actual repository state.
+3. **Verify** claims from the previous handoff.
+4. **Run** available tests before making assumptions.
+5. **Identify** the smallest highest-value missing piece.
+6. **Build** the next increment.
+7. **Test** the increment and record failures honestly.
+8. **Integrate** with existing architecture rather than duplicating it.
+9. **Clean** documentation, dead code, and inconsistencies discovered during the work.
+10. **Commit** a coherent change with a descriptive message.
+11. **Update** this continuity state and the relevant roadmap/changelog.
+12. **Hand off** the verified state to the next workspace.
+
+## Core Invariant
+
+> **Never claim a component is complete until the actual repository has been inspected and the available tests have been run or their absence explicitly recorded.**
+
+## Current Architecture
+
+```text
+Ω∞ SOURCE
+    ↓
+INTENT
+    ↓
+OCEANIC IR / CONTRACT
+    ↓
+POLYGLOT ADAPTERS
+    ↓
+PROOFS + DISSENT
+    ↓
+VERIFICATION
+    ↓
+ATTESTATION
+    ↓
+HUMAN AUTHORIZATION
+    ↓
+AUTHORIZED RUNTIME
+    ↓
+OBSERVATION
+    ↓
+EVOLUTION PROPOSAL
+    ↓
+EVENT LEDGER
+    ↓
+CONTINUITY / HANDOFF
+    ↺
+CONTINUOUS BECOMING
+```
+
+## Current Modules
+
+- `oceanic_attestation.py` — durable verification evidence.
+- `oceanic_authorization.py` — explicit authorization boundary.
+- `oceanic_observer.py` — authorized execution and runtime comparison.
+- `oceanic_evolution.py` — evidence-preserving evolution proposals.
+- `oceanic_event_ledger.py` — append-only, hash-chained local history.
+- `tests/` — regression and integration evidence where present.
+
+## Known Integration Priority
+
+The next major engineering objective is to connect the existing lifecycle components through a single coordinator without duplicating their logic:
+
+```text
+contract.created
+→ verification.completed
+→ attestation.created
+→ authorization.granted / authorization.rejected
+→ runtime.observed
+→ observation.matched / observation.deviated
+→ evolution.proposed
+→ human.review.required
+```
+
+The event ledger should become the durable record of these transitions.
+
+## Verification Discipline
+
+- Do not silently rewrite historical attestations.
+- Do not automatically convert runtime deviation into a contract mutation.
+- Evolution begins as a proposal.
+- Human authorization remains an explicit boundary for consequential execution or changes.
+- Preserve dissent and uncertainty as first-class evidence.
+- Prefer local-first operation and graceful degradation.
+- Treat tests, Git history, attestations, and ledger events as complementary evidence.
+
+## Multi-Repository Continuity
+
+When continuing from another GitHub account or repository:
+
+```text
+SOURCE REPOSITORY
+      ↓
+READ CONTINUITY PACK
+      ↓
+INSPECT TARGET REPOSITORY
+      ↓
+VERIFY STATE
+      ↓
+BUILD / TEST / CLEAN
+      ↓
+COMMIT
+      ↓
+UPDATE CONTINUITY PACK
+      ↓
+NEXT REPOSITORY
+```
+
+Repositories A, B, and C are not separate conceptual projects. They are continuation points in one engineering process. Each repository remains responsible for its own source of truth; continuity is maintained through versioned code, tests, documentation, Git history, and explicit handoffs.
+
+## Handoff Template
+
+At the end of each development session, record:
+
+### Completed
+
+- What was actually implemented.
+- What was actually tested.
+- Commit SHA(s).
+
+### Current State
+
+- What is working.
+- What is partially integrated.
+- What remains unverified.
+
+### Known Gaps
+
+- Missing modules.
+- Failing tests.
+- Integration gaps.
+- Documentation gaps.
+
+### Next Action
+
+State the **single highest-value next engineering action**.
+
+### Principle
+
+> **Zero is not starting over. Zero is the point from which the next verified state emerges.**
+
+## Continuity Equation
+
+```text
+A → B → C → A → ∞
+
+one project
++ persistent state
++ verified handoffs
++ continuous testing
++ continuous improvement
+= continuous becoming
+```
