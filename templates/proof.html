@@ -29,7 +29,11 @@
       box-shadow:0 0 12px currentColor; }
     .subject { font-size:1.35rem; font-weight:600; margin:1.1rem 0 .3rem; color:var(--fg); word-break:break-word; }
     .lead { color:var(--dim); margin:0 0 1.4rem; }
-    .badge-row { margin:1rem 0 1.4rem; }
+    .badge-row { margin:1rem 0 1.2rem; }
+    .scrutiny { border-top:1px solid var(--line); padding-top:1rem; margin-bottom:.2rem; }
+    .scrutiny-head { display:flex; justify-content:space-between; align-items:baseline; }
+    .scrutiny-head .v { font-size:1.15rem; font-weight:600; }
+    .scrutiny-phrase { color:var(--dim); margin:.25rem 0 0; font-size:.9rem; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:.1rem 1.4rem; border-top:1px solid var(--line); padding-top:1.2rem; }
     .row { display:flex; justify-content:space-between; gap:1rem; padding:.5rem 0; border-bottom:1px solid var(--line); }
     .k { color:var(--dim); } .v { text-align:right; word-break:break-word; }
@@ -66,6 +70,13 @@
         </p>
 
         <div class="badge-row"><img src="/badge/attestation/{{ att_id }}.svg?label=verified+output" alt="{{ verdict }}" height="20"></div>
+
+        {% if scrutiny %}
+        <div class="scrutiny">
+          <div class="scrutiny-head"><span class="k">scrutiny</span><span class="v">{{ scrutiny.friction }}</span></div>
+          <p class="scrutiny-phrase">{{ scrutiny.phrase }} — <span class="k">{{ scrutiny.note }}</span>.</p>
+        </div>
+        {% endif %}
 
         <div class="grid">
           <div class="row"><span class="k">confidence</span><span class="v">{{ att.confidence }} <span class="k">/ {{ att.threshold }}</span></span></div>

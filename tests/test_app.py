@@ -212,6 +212,9 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("rules-engine", payload["adapters"])
         # dissent is recorded as data — the response carries the score
         self.assertIn("dissent_score", payload)
+        # the fracture lines are the output — the panel never smooths to one answer
+        self.assertIn("preferred_interpretation", payload)
+        self.assertIsNone(payload["preferred_interpretation"])
 
     def test_consensus_ledger_records_dissent(self):
         # a couple of evaluations are recorded (prompt hashed, never stored raw)
@@ -1144,12 +1147,18 @@ class OceanicOSAppTests(unittest.TestCase):
         # and tells the reader how to verify it independently, online and offline
         self.assertIn(f"attestations/{att['id']}/receipt", body)
         self.assertIn("oceanic-os receipt --verify", body)
+        # the scrutiny the claim drew — measured, never charged (round 0086)
+        self.assertIn("scrutiny", body)
+        self.assertIn("never charged", body)
+        self.assertIn("clear of the bar", body)  # 0.95 is well above the bar
 
     def test_proof_page_reflects_a_held_record(self):
         att = app_module.attestation_engine.attest("weak-proof", "uncertain", [], 0.4)
         body = self.client.get(f"/proof/{att['id']}").get_data(as_text=True)
         self.assertIn("HELD", body)
         self.assertIn("held below", body)
+        # a held claim reads high scrutiny with the gap below the bar
+        self.assertIn("high scrutiny", body)
 
     def test_proof_page_missing_id_is_404_with_a_page(self):
         resp = self.client.get("/proof/999999")

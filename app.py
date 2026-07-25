@@ -19,6 +19,7 @@ import anchor
 import badge
 import doctrine
 import evolution
+import friction
 import identity
 import report
 import status_digest
@@ -985,8 +986,11 @@ def proof_page(att_id: int):
         verdict, vclass = "ATTESTED", "ok"
     else:
         verdict, vclass = "HELD", "warn"
+    # the scrutiny this claim drew — measured, never charged (friction.py)
+    scrutiny = friction.reading(att["confidence"], att["threshold"])
     return render_template(
-        "proof.html", receipt=receipt, att_id=att_id, verdict=verdict, vclass=vclass
+        "proof.html", receipt=receipt, att_id=att_id, verdict=verdict,
+        vclass=vclass, scrutiny=scrutiny,
     )
 
 
