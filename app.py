@@ -968,6 +968,25 @@ def attestation_badge(att_id):
     return resp
 
 
+@app.route("/badge/evolution.svg", methods=["GET"])
+def evolution_badge():
+    """The compounding footprint's trajectory as an embeddable sparkline badge.
+
+    Where the CVI and posture badges show a value, this shows *movement*: a grey
+    `records N` cell and a normalized trend line of `records_total` over the recorded
+    growth points (`evolution_history`). A README can pin it to show, at a glance,
+    that the record is compounding. `?label=` overrides the left word; `?limit=` caps
+    the points drawn (default 30). Sent no-cache so an embed is never stale.
+    """
+    limit = request.args.get("limit", type=int) or 30
+    label = request.args.get("label", "records")
+    values = [point["records_total"] for point in evolution_history.list(limit=limit)]
+    svg = badge.sparkline(values, label=label)
+    resp = Response(svg, mimetype=badge.CONTENT_TYPE)
+    resp.headers["Cache-Control"] = "no-cache, max-age=0"
+    return resp
+
+
 @app.route("/proof/<int:att_id>", methods=["GET"])
 def proof_page(att_id: int):
     """A shareable, human-readable proof page for one verified output.
