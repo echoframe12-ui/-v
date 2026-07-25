@@ -66,6 +66,30 @@ class DoctrineIntegrityTests(unittest.TestCase):
         self.assertIn("→ Recompile → ∞", s["checksum_line"])
         self.assertEqual(len(s["mapping"]), len(doctrine.MAPPING))
 
+    def test_master_handoff_fields_present(self):
+        s = doctrine.summary()
+        # the Ω∞ Oceanic umbrella identity and the master loop/axiom/definition
+        self.assertEqual(s["umbrella"], "Ω∞ Oceanic")
+        self.assertIn("Recompilation", s["master_loop"])
+        self.assertIn("One Verification Fabric", s["master_axiom"])
+        self.assertIn("local-first intelligence ecosystem", s["master_definition"])
+
+    def test_ecosystem_intelligence_layers_are_honest(self):
+        names = {l["layer"] for l in doctrine.LAYERS}
+        # the multi-model layer is real and shipped; the rest of the AI-ecosystem
+        # vision is named but honestly marked aspirational (each with a note, enforced
+        # by test_unshipped_layers_are_honest)
+        self.assertIn("Intelligence · Multi-Model", names)
+        multi = next(l for l in doctrine.LAYERS if l["layer"] == "Intelligence · Multi-Model")
+        self.assertTrue(multi["shipped"])
+        for aspirational in (
+            "Intelligence · Large-Context", "Intelligence · Open-Weight",
+            "Intelligence · Proactive", "Infrastructure · AI Supercomputing",
+        ):
+            self.assertIn(aspirational, names)
+            layer = next(l for l in doctrine.LAYERS if l["layer"] == aspirational)
+            self.assertFalse(layer["shipped"], f"{aspirational} should be honestly aspirational")
+
     def test_doctrine_md_exists(self):
         self.assertTrue((REPO_ROOT / "DOCTRINE.md").exists())
 

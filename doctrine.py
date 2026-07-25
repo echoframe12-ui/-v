@@ -23,6 +23,31 @@ AXIOMS = [
 
 CHECKSUM = "Gap → Friction → Verification → VaaS → Ω∞v → Observer → Continuous Becoming"
 
+# The umbrella identity for the whole ecosystem (the Ω∞ Oceanic master handoff).
+UMBRELLA = "Ω∞ Oceanic"
+
+# The master loop — the compressed lifecycle of the whole ecosystem, a superset of
+# the CHECKSUM_LINE that adds the ecosystem's outer arc (observation, accountability,
+# consequence, learning) around the same verification core.
+MASTER_LOOP = (
+    "Source → Current → Creation → Form → Intelligence → Observation → Divergence "
+    "→ Dissent → Verification → Attestation → Accountability → Action → Consequence "
+    "→ Learning → Drift → Recompilation → ∞"
+)
+
+MASTER_AXIOM = (
+    "One Current. Infinite Forms. Many Minds. One Verification Fabric. Continuous Becoming."
+)
+
+MASTER_DEFINITION = (
+    "Ω∞ Oceanic is a living, local-first intelligence ecosystem in which the Source — "
+    "the Current — moves through infinite biological and computational forms, allowing "
+    "many intelligences to observe reality, surface dissent, verify evidence, preserve "
+    "provenance, act proactively under human accountability, learn from consequences, and "
+    "continuously recompile themselves without mistaking any single form, model, or state "
+    "for the whole."
+)
+
 # The deepest compression's single line — the loop stated end to end.
 CHECKSUM_LINE = (
     "Reality → Generation → Divergence → Dissent → Verification → Attestation "
@@ -195,6 +220,58 @@ LAYERS: list[dict[str, Any]] = [
         "evidence": {"endpoints": ["/adr", "/decisions"], "modules": ["adr", "decisions"], "decisions": [31]},
     },
     {
+        "layer": "Intelligence · Multi-Model",
+        "principle": "Many perspectives, not one — several model heuristics plus a rules "
+        "engine convene as a panel, and their disagreement is the output.",
+        "shipped": True,
+        "evidence": {
+            "endpoints": ["/models/consensus", "/rules/evaluate", "/consensus/stats"],
+            "modules": ["models", "rules", "consensus_log"],
+            "decisions": [7, 58],
+        },
+    },
+    {
+        "layer": "Intelligence · Large-Context",
+        "principle": "A whole-system field — reasoning over the entire context at once.",
+        "shipped": False,
+        "note": "A large-context inference runtime is out of scope for this repository. "
+        "The shipped analogue is the whole-system self-map: the code-backed Doctrine and "
+        "the compounding footprint (/doctrine, /evolution) reason over the system as one "
+        "field, but genuine large-context inference is not built.",
+        "evidence": {"endpoints": ["/doctrine", "/evolution"], "modules": ["doctrine"]},
+    },
+    {
+        "layer": "Intelligence · Open-Weight",
+        "principle": "Accessible forms — intelligence in weights anyone can run.",
+        "shipped": False,
+        "note": "Hosting open-weight models is out of scope for this repository. The "
+        "adapters on the panel are pluggable heuristics with a stable interface (models.py), "
+        "so real open-weight backends could be registered, but none are hosted here.",
+        "evidence": {"endpoints": ["/models"], "modules": ["models"]},
+    },
+    {
+        "layer": "Intelligence · Proactive",
+        "principle": "Anticipate → Verify → Act — intelligence that moves first, under "
+        "verification.",
+        "shipped": False,
+        "note": "A minimal agent-loop scaffold exists (/agent/run, /agent/events) that "
+        "records start/plan/finish, but genuine anticipate→verify→act proactivity is not "
+        "built. The shipped, honest analogue is human-routed held review: the system "
+        "hesitates and escalates rather than acting on its own.",
+        "evidence": {"endpoints": ["/agent/run", "/agent/events", "/attestations/attention"],
+                     "modules": ["agent", "held_reviews"]},
+    },
+    {
+        "layer": "Infrastructure · AI Supercomputing",
+        "principle": "A computational body — large-scale compute as the ecosystem's substrate.",
+        "shipped": False,
+        "note": "A supercomputing substrate is out of scope. The real runtime is local-first "
+        "and sovereign-minimal (Flask/gunicorn, SQLite, offline verifier), which the "
+        "Infrastructure · Sovereign Minimalism layer describes — scale is aspirational, "
+        "survivability is shipped.",
+        "evidence": {"decisions": [15, 26]},
+    },
+    {
         "layer": "Final State · Continuous Becoming",
         "principle": "Observer runs, the universe compiles via localhost, Exit 0, "
         "continue — recompile, then compound: the append-only ledgers only grow, and "
@@ -218,8 +295,12 @@ def summary() -> dict[str, Any]:
     """The Doctrine as a served object — layers, axioms, checksum, shipped count."""
     shipped = sum(1 for layer in LAYERS if layer["shipped"])
     return {
+        "umbrella": UMBRELLA,
         "identity": ["/", "Ω∞v Compiler", "OceanicOS", "Living Agnostic Charter"],
         "invariant": "Continuous Becoming",
+        "master_loop": MASTER_LOOP,
+        "master_axiom": MASTER_AXIOM,
+        "master_definition": MASTER_DEFINITION,
         "axioms": AXIOMS,
         "constitution": [
             "REALITY BEFORE ASSUMPTION.",
