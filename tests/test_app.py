@@ -1129,6 +1129,34 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("verified output", self.client.get(
             f"/badge/attestation/{att['id']}.svg?label=verified+output").get_data(as_text=True))
 
+    def test_proof_page_renders_a_shareable_certificate(self):
+        att = app_module.attestation_engine.attest("proof-doc", "the verified output", ["plan", "spec"], 0.95)
+        resp = self.client.get(f"/proof/{att['id']}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("text/html", resp.content_type)
+        body = resp.get_data(as_text=True)
+        self.assertIn("Verification Proof", body)
+        self.assertIn("ATTESTED", body)
+        self.assertIn("proof-doc", body)
+        # it embeds the per-attestation badge and shows the content hash
+        self.assertIn(f"/badge/attestation/{att['id']}.svg", body)
+        self.assertIn(att["sha256"], body)
+        # and tells the reader how to verify it independently, online and offline
+        self.assertIn(f"attestations/{att['id']}/receipt", body)
+        self.assertIn("oceanic-os receipt --verify", body)
+
+    def test_proof_page_reflects_a_held_record(self):
+        att = app_module.attestation_engine.attest("weak-proof", "uncertain", [], 0.4)
+        body = self.client.get(f"/proof/{att['id']}").get_data(as_text=True)
+        self.assertIn("HELD", body)
+        self.assertIn("held below", body)
+
+    def test_proof_page_missing_id_is_404_with_a_page(self):
+        resp = self.client.get("/proof/999999")
+        self.assertEqual(resp.status_code, 404)
+        self.assertIn("text/html", resp.content_type)
+        self.assertIn("NOT FOUND", resp.get_data(as_text=True))
+
     def test_attestation_badge_missing_id_is_grey_404(self):
         resp = self.client.get("/badge/attestation/999999.svg")
         self.assertEqual(resp.status_code, 404)
