@@ -115,6 +115,10 @@ class ModelRouter:
             "distribution": dict(distribution),
             "majority": majority,
             "dissent": len(set(verdicts)) > 1,
+            # We surface the distribution and the majority as data, but never
+            # designate a single smoothed-over answer — the fracture lines are the
+            # output. `preferred_interpretation` is always null by design.
+            "preferred_interpretation": None,
         }
 
     def list_adapters(self) -> list[dict[str, Any]]:

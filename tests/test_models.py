@@ -53,6 +53,9 @@ class ModelRouterTests(unittest.TestCase):
         self.assertEqual(consensus["verdicts"], ["approve", "revise"])
         self.assertTrue(consensus["dissent"])
         self.assertEqual(consensus["distribution"], {"approve": 1, "revise": 1})
+        # the fracture lines are the output — never a single smoothed answer
+        self.assertIn("preferred_interpretation", consensus)
+        self.assertIsNone(consensus["preferred_interpretation"])
 
     def test_route_all_reports_consensus_when_verdicts_agree(self):
         router = ModelRouter()
