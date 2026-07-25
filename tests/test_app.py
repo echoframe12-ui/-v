@@ -1166,6 +1166,24 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertIn("text/html", resp.content_type)
         self.assertIn("NOT FOUND", resp.get_data(as_text=True))
 
+    def test_evolution_badge_is_a_sparkline_of_the_growth_curve(self):
+        # a couple of builds move the footprint, recording growth points
+        self.client.post("/builder/run", json={"task": "compound one"})
+        self.client.post("/builder/run", json={"task": "compound two"})
+        resp = self.client.get("/badge/evolution.svg")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.mimetype, "image/svg+xml")
+        self.assertIn("no-cache", resp.headers.get("Cache-Control", ""))
+        body = resp.get_data(as_text=True)
+        self.assertTrue(body.startswith("<svg"))
+        self.assertIn("<polyline", body)
+        # the label carries the current records_total
+        current = self.client.get("/evolution").get_json()["records_total"]
+        self.assertIn(f"records {current}", body)
+        # a label override
+        self.assertIn("footprint", self.client.get(
+            "/badge/evolution.svg?label=footprint").get_data(as_text=True))
+
     def test_attestation_badge_missing_id_is_grey_404(self):
         resp = self.client.get("/badge/attestation/999999.svg")
         self.assertEqual(resp.status_code, 404)

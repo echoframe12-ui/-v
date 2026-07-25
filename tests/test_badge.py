@@ -66,6 +66,37 @@ class AttestationMessageTests(unittest.TestCase):
         self.assertEqual(c2, "#f85149")
 
 
+class SparklineTests(unittest.TestCase):
+    def test_sparkline_is_svg_with_label_and_latest_value(self):
+        svg = badge.sparkline([90, 94, 98], label="records")
+        self.assertTrue(svg.startswith("<svg"))
+        self.assertTrue(svg.rstrip().endswith("</svg>"))
+        self.assertIn("records 98", svg)  # label + latest value
+        self.assertIn("<polyline", svg)   # the trend line
+        self.assertIn("#3fb950", svg)     # green line
+
+    def test_sparkline_draws_a_point_per_value(self):
+        svg = badge.sparkline([1, 2, 3, 4], label="records")
+        points = svg.split('points="', 1)[1].split('"', 1)[0]
+        self.assertEqual(len(points.split(" ")), 4)  # four coordinates
+
+    def test_empty_series_is_a_flat_baseline_and_zero(self):
+        svg = badge.sparkline([], label="records")
+        self.assertIn("records 0", svg)
+        self.assertIn("<polyline", svg)  # a flat baseline, never a fabricated shape
+
+    def test_single_point_does_not_crash(self):
+        svg = badge.sparkline([5], label="records")
+        self.assertIn("records 5", svg)
+        self.assertTrue(svg.startswith("<svg"))
+
+    def test_normalization_keeps_points_inside_the_box(self):
+        svg = badge.sparkline([10, 1000, 500], label="r")
+        coords = svg.split('points="', 1)[1].split('"', 1)[0].split(" ")
+        ys = [float(c.split(",")[1]) for c in coords]
+        self.assertTrue(all(0 <= y <= 20 for y in ys))  # within the 20px height
+
+
 class RenderTests(unittest.TestCase):
     def test_render_is_svg_with_both_cells(self):
         svg = badge.render("verification", "0.82", "#3fb950")
