@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trust Timeline · OceanicOS</title>
+  <style>
+    :root { --bg:#05070d; --dim:#8b98b0; --fg:#e6edf3; --line:rgba(140,170,220,.14);
+            --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#7ee0ff; --hash:#79c0ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:
+        radial-gradient(1100px 700px at 80% -10%, rgba(60,40,120,.35), transparent 60%),
+        radial-gradient(900px 600px at 0% 10%, rgba(20,80,120,.30), transparent 55%), var(--bg);
+      color:var(--fg); font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+      min-height:100vh; padding:48px 20px; line-height:1.55; }
+    .wrap { max-width:820px; margin:0 auto; }
+    .sigil { text-align:center; font-size:2rem; letter-spacing:.35em; font-weight:700;
+      background:linear-gradient(90deg,#7ee0ff,#c9a3ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .kicker { text-align:center; color:var(--dim); letter-spacing:.4em; font-size:.7rem; text-transform:uppercase; margin:.4rem 0 2.2rem; }
+    .card { background:rgba(13,20,34,.72); border:1px solid var(--line); border-radius:16px;
+      padding:22px 24px; backdrop-filter:blur(8px); margin-bottom:1.4rem; }
+    .head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.2rem; }
+    .head h2 { font-size:.72rem; letter-spacing:.28em; text-transform:uppercase; color:var(--dim); margin:0; font-weight:600; }
+    .val { font-size:1.3rem; font-weight:600; }
+    .sub { color:var(--dim); font-size:.82rem; margin:.1rem 0 .8rem; }
+    svg.chart { width:100%; height:90px; display:block; }
+    .empty { color:var(--dim); font-size:.85rem; padding:1rem 0; }
+    .pills { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.4rem; }
+    .pill { display:inline-flex; align-items:center; gap:.4rem; border:1px solid var(--line);
+      border-radius:999px; padding:.28rem .7rem; font-size:.8rem; }
+    .pill .to.ok { color:var(--ok); } .pill .to.warn { color:var(--warn); } .pill .to.bad { color:var(--bad); }
+    .pill .at { color:var(--dim); font-size:.72rem; }
+    .arrow { color:var(--dim); }
+    .foot { text-align:center; color:var(--dim); font-size:.75rem; margin-top:1.4rem; }
+    a { color:var(--hash); text-decoration:none; } a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sigil">Ω∞v</div>
+    <div class="kicker">Trust Timeline</div>
+
+    <div class="card">
+      <div class="head"><h2>Verification Index · CVI</h2><span class="val" id="cvi-val">—</span></div>
+      <div class="sub" id="cvi-sub">the trust index over time</div>
+      <svg class="chart" id="cvi-chart" viewBox="0 0 400 90" preserveAspectRatio="none"></svg>
+      <div class="empty" id="cvi-empty" hidden>No CVI trend recorded yet — the index moves as the record grows.</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><h2>Compounding Footprint · records</h2><span class="val" id="evo-val">—</span></div>
+      <div class="sub" id="evo-sub">the record compounding over time</div>
+      <svg class="chart" id="evo-chart" viewBox="0 0 400 90" preserveAspectRatio="none"></svg>
+      <div class="empty" id="evo-empty" hidden>No growth recorded yet — the curve appears as the histories compound.</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><h2>Posture · verdict</h2><span class="val" id="pos-val">—</span></div>
+      <div class="sub">when trust changed state, as the audits saw it</div>
+      <div class="pills" id="pos-pills"></div>
+      <div class="empty" id="pos-empty" hidden>No posture transitions yet — run an audit to record the verdict.</div>
+    </div>
+
+    <div class="foot">
+      Ω∞v · <a href="/">the terminal</a> · <a href="/status">status</a> · <a href="/becoming">the becoming</a> · <a href="/console">operator console</a>
+    </div>
+  </div>
+
+  <script>
+    const cls = p => p === "TRUSTWORTHY" ? "ok" : (p === "BROKEN" ? "bad" : "warn");
+
+    function drawLine(svg, values, color) {
+      const W = 400, H = 90, pad = 8;
+      if (!values.length) return false;
+      const lo = Math.min(...values), hi = Math.max(...values), span = (hi - lo) || 1;
+      const n = values.length;
+      const pts = values.map((v, i) => {
+        const x = n === 1 ? W / 2 : pad + (W - 2 * pad) * i / (n - 1);
+        const y = (H - pad) - (v - lo) / span * (H - 2 * pad);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      });
+      const [ex, ey] = pts[pts.length - 1].split(",");
+      svg.innerHTML =
+        `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" ` +
+        `stroke-linecap="round" points="${pts.join(" ")}" vector-effect="non-scaling-stroke"/>` +
+        `<circle cx="${ex}" cy="${ey}" r="3" fill="${color}"/>`;
+      return true;
+    }
+
+    async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error("failed"); return r.json(); }
+
+    (async () => {
+      // CVI trend
+      try {
+        const cvi = await getJSON("/cvi/history");
+        if (cvi.length) {
+          const vals = cvi.map(p => p.cvi);
+          drawLine(document.getElementById("cvi-chart"), vals, "#7ee0ff");
+          document.getElementById("cvi-val").textContent = vals[vals.length - 1].toFixed(2);
+          document.getElementById("cvi-sub").textContent =
+            `${cvi.length} points · from ${vals[0].toFixed(2)} to ${vals[vals.length-1].toFixed(2)}`;
+        } else { document.getElementById("cvi-empty").hidden = false; }
+      } catch (e) { document.getElementById("cvi-empty").hidden = false; }
+
+      // Growth curve
+      try {
+        const evo = await getJSON("/evolution/history");
+        const h = evo.history || [];
+        if (h.length) {
+          const vals = h.map(p => p.records_total);
+          drawLine(document.getElementById("evo-chart"), vals, "#3fb950");
+          document.getElementById("evo-val").textContent = evo.growth.latest;
+          document.getElementById("evo-sub").textContent =
+            `${evo.growth.points} points · +${evo.growth.gain} since it began`;
+        } else { document.getElementById("evo-empty").hidden = false; }
+      } catch (e) { document.getElementById("evo-empty").hidden = false; }
+
+      // Posture transitions
+      try {
+        const pos = await getJSON("/posture/history");
+        document.getElementById("pos-val").textContent = pos.current;
+        document.getElementById("pos-val").className = "val " + cls(pos.current);
+        const t = pos.transitions || [];
+        if (t.length) {
+          document.getElementById("pos-pills").innerHTML = t.map(c => {
+            const when = (c.at || "").slice(0, 19).replace("T", " ");
+            const from = c.from ? `${c.from} <span class="arrow">→</span> ` : "";
+            return `<span class="pill">${from}<span class="to ${cls(c.to)}">${c.to}</span> <span class="at">${when}</span></span>`;
+          }).join("");
+        } else { document.getElementById("pos-empty").hidden = false; }
+      } catch (e) { document.getElementById("pos-empty").hidden = false; }
+    })();
+  </script>
+</body>
+</html>

@@ -307,6 +307,19 @@ def becoming():
     return render_template("becoming.html")
 
 
+@app.route("/timeline", methods=["GET"])
+def timeline():
+    """The trust timeline — all three headline signals over time, on one page.
+
+    The CVI trend, the compounding footprint's growth curve, and the posture
+    verdict's transitions, each watchable at once instead of across three endpoints.
+    A pure client over `/cvi/history`, `/evolution/history`, and `/posture/history`;
+    every panel degrades to its own empty state if a series is unreachable, and never
+    fabricates a point.
+    """
+    return render_template("timeline.html")
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify(service.health())
