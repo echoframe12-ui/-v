@@ -34,6 +34,31 @@ class OceanicOSClientTests(unittest.TestCase):
         # the report is Markdown text, not JSON — the opener round-trips it
         self.assertIn("# OceanicOS Trust Report", self.kai.report())
 
+    def test_trust_timeline_via_client(self):
+        # a build moves the CVI and the footprint; an audit records the posture
+        app_module.auth_registry.admin_users.add("client-timeline")
+        try:
+            self.kai.register("client-timeline")
+            self.kai._call("POST", "/builder/run", {"task": "compound the record"})
+            self.kai._call("POST", "/attestations/audit", None)
+            # the three histories are reachable individually
+            self.assertIsInstance(self.kai.cvi_history(), list)
+            evo = self.kai.evolution_history()
+            self.assertIn("growth", evo)
+            self.assertIn("history", evo)
+            pos = self.kai.posture_history()
+            self.assertIn("current", pos)
+            self.assertIn("transitions", pos)
+            # …and together in one call
+            tl = self.kai.timeline()
+            self.assertEqual(set(tl), {"cvi", "evolution", "posture"})
+            self.assertGreaterEqual(len(tl["cvi"]), 1)
+            self.assertEqual(tl["posture"]["current"], pos["current"])
+            # limit is honoured
+            self.assertLessEqual(len(self.kai.cvi_history(limit=1)), 1)
+        finally:
+            app_module.auth_registry.admin_users.discard("client-timeline")
+
     def test_supersession_and_lineage_via_client(self):
         eng = app_module.attestation_engine
         v1 = eng.attest("client-charter", "one", ["plan"], 0.9)

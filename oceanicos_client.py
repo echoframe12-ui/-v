@@ -115,6 +115,40 @@ class OceanicOSClient:
     def evolution(self) -> Any:
         return self._call("GET", "/evolution")
 
+    # ---- trust over time (the three histories) ----
+    def cvi_history(self, actor: str = "", limit: Optional[int] = None) -> Any:
+        """The CVI trend — the index over time (`/cvi/history`)."""
+        query = []
+        if actor:
+            query.append("actor=" + quote(actor, safe=""))
+        if limit is not None:
+            query.append("limit=" + str(int(limit)))
+        suffix = ("?" + "&".join(query)) if query else ""
+        return self._call("GET", "/cvi/history" + suffix)
+
+    def evolution_history(self, limit: Optional[int] = None) -> Any:
+        """The compounding footprint over time — the growth curve (`/evolution/history`)."""
+        suffix = f"?limit={int(limit)}" if limit is not None else ""
+        return self._call("GET", "/evolution/history" + suffix)
+
+    def posture_history(self, limit: Optional[int] = None) -> Any:
+        """When trust changed state — the posture verdict's transitions (`/posture/history`)."""
+        suffix = f"?limit={int(limit)}" if limit is not None else ""
+        return self._call("GET", "/posture/history" + suffix)
+
+    def timeline(self, limit: Optional[int] = None) -> dict:
+        """The whole trust timeline in one call — index, footprint, and verdict over time.
+
+        The data behind the `/timeline` page, assembled client-side: the CVI trend,
+        the growth curve, and the posture transitions together, so a monitor can pull
+        "how has trust moved" in a single method instead of three requests.
+        """
+        return {
+            "cvi": self.cvi_history(limit=limit),
+            "evolution": self.evolution_history(limit=limit),
+            "posture": self.posture_history(limit=limit),
+        }
+
     def doctrine(self) -> Any:
         return self._call("GET", "/doctrine")
 
