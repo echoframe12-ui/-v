@@ -3,7 +3,7 @@ import unittest
 from context_assembly import ContextSource
 from integration_pipeline import IntegrationPipeline
 from perspectives import make_perspective
-from verification_pipeline import VerificationPipeline
+from verification_pipeline import VerificationCheck, VerificationPipeline
 
 
 class StubAdapter:
@@ -56,9 +56,9 @@ class VerificationPipelineTests(unittest.TestCase):
     def test_failed_check_is_held_and_cannot_be_attested(self):
         result = self._result()
         verification = VerificationPipeline(
-            checks=lambda _: __import__("verification_pipeline").VerificationCheck(
-                "blocking_check", False, "manual hold"
-            ),
+            checks=[
+                lambda _: VerificationCheck("blocking_check", False, "manual hold")
+            ],
         ).verify(result)
 
         self.assertEqual(verification.status, "held")
