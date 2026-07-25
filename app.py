@@ -30,6 +30,7 @@ from agent import AgentLoop
 from consensus_log import ConsensusLog
 from cvi_history import CviHistory
 from drift_audit import DriftAuditLog
+from evolution_history import EvolutionHistory
 from supersession import SupersessionLog
 from verify_ledger import full_report as verify_full_report
 from artifacts import ArtifactRegistry
@@ -144,6 +145,7 @@ cvi_history = CviHistory(str(service.db_path))
 drift_audit_log = DriftAuditLog(str(service.db_path))
 consensus_log = ConsensusLog(str(service.db_path))
 supersession_log = SupersessionLog(str(service.db_path))
+evolution_history = EvolutionHistory(str(service.db_path))
 # Time-to-decision SLA for held attestations (seconds). 0 disables breach flags.
 HELD_SLA_SECONDS = int(os.getenv("OCEANICOS_HELD_SLA_SECONDS", "86400"))
 
@@ -161,6 +163,9 @@ def _snapshot_cvi(actor: str | None = None) -> None:
         cvi_history.record_if_changed(
             attestation_engine.cvi(actor=actor, released_ids=released), actor=actor
         )
+    # the compounding footprint moves at the same evolution points — record the
+    # trajectory too, change-only, so "the histories compound" is a curve (round 87)
+    evolution_history.record_if_changed(sum(_ledger_counts().values()))
 app.config["REQUIRE_AUTH"] = os.getenv("OCEANICOS_REQUIRE_AUTH", "0") == "1"
 app.config["AUTH_REGISTRY"] = auth_registry
 builder = UniversalBuilder(
@@ -1325,6 +1330,25 @@ def serve_evolution():
     like `/metrics`: counts only, no per-record content.
     """
     return jsonify(evolution.compounding(_ledger_counts()))
+
+
+@app.route("/evolution/history", methods=["GET"])
+def serve_evolution_history():
+    """The compounding footprint over time — "the histories compound" as a curve.
+
+    Where `/evolution` is the footprint now, this is its trajectory: the append-only
+    series of `records_total` recorded at each evolution point (a build, a held
+    review), change-only, plus a `growth` summary (first, latest, and the gain since
+    the series began). Public and aggregate — totals only, no per-record content.
+    `?limit=` caps the points returned.
+    """
+    limit = request.args.get("limit", type=int) if "limit" in request.args else None
+    if "limit" in request.args and limit is None:
+        return jsonify({"error": "limit must be an integer"}), 400
+    return jsonify({
+        "history": evolution_history.list(limit=limit),
+        "growth": evolution_history.growth(),
+    })
 
 
 @app.route("/report", methods=["GET"])

@@ -1252,6 +1252,20 @@ class OceanicOSAppTests(unittest.TestCase):
             data["records_total"], sum(l["count"] for l in data["ledgers"].values())
         )
 
+    def test_evolution_history_tracks_the_growth_curve(self):
+        # baseline (the shared app db may already carry points from other tests)
+        base = self.client.get("/evolution/history").get_json()["growth"]["points"]
+        # a build is an evolution point — it moves the footprint and records a snapshot
+        self.client.post("/builder/run", json={"task": "compound the record"})
+        after = self.client.get("/evolution/history").get_json()
+        self.assertGreater(after["growth"]["points"], base)  # the curve grew
+        # the latest trajectory point equals the current /evolution records_total
+        current = self.client.get("/evolution").get_json()["records_total"]
+        self.assertEqual(after["history"][-1]["records_total"], current)
+        self.assertEqual(after["growth"]["latest"], current)
+        # a bad limit is rejected
+        self.assertEqual(self.client.get("/evolution/history?limit=abc").status_code, 400)
+
     def test_status_digest_is_signed_and_verifiable(self):
         import status_digest
         app_module.attestation_engine.attest("digest-doc", "body", ["plan"], 0.9)
