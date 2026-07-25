@@ -1090,6 +1090,30 @@ def status_json():
     return jsonify(snapshot)
 
 
+@app.route("/posture/history", methods=["GET"])
+def posture_history():
+    """When trust changed state — the posture verdict's transitions over time.
+
+    Where `/cvi/history` is the index over time and `/evolution/history` the footprint
+    over time, this is the *verdict* over time: the moments the posture actually
+    changed — BROKEN, INTACT, TRUSTWORTHY — derived from the drift-audit trail rather
+    than a new ledger, so it is the posture the record's own audits saw. `current` is
+    the live verdict; `transitions` are the change-points (oldest-first, `from` null at
+    the first). Public and aggregate. `?limit=` caps the audits considered.
+    """
+    limit = request.args.get("limit", type=int) if "limit" in request.args else None
+    if "limit" in request.args and limit is None:
+        return jsonify({"error": "limit must be an integer"}), 400
+    audits = drift_audit_log.list(limit=limit)  # newest-first
+    changes = status_digest.transitions(list(reversed(audits)))  # oldest-first
+    current = status_digest.posture_of(attestation_engine.verify())
+    return jsonify({
+        "current": current,
+        "transitions": changes,
+        "audits_considered": len(audits),
+    })
+
+
 def _status_digest_document() -> dict[str, Any]:
     """Build the signed posture digest — one source for the endpoint and the export.
 

@@ -53,6 +53,38 @@ class PostureTests(unittest.TestCase):
         self.assertEqual(payload["dissent_rate"], 0.5)
 
 
+class TransitionsTests(unittest.TestCase):
+    def _audit(self, id, intact, trustworthy, at):
+        return {"id": id, "intact": intact, "trustworthy": trustworthy, "length": id, "checked_at": at}
+
+    def test_collapses_runs_into_change_points(self):
+        audits = [
+            self._audit(1, True, False, "t1"),   # INTACT
+            self._audit(2, True, False, "t2"),   # INTACT (no change)
+            self._audit(3, True, True, "t3"),    # -> TRUSTWORTHY
+            self._audit(4, False, False, "t4"),  # -> BROKEN
+            self._audit(5, True, True, "t5"),    # -> TRUSTWORTHY
+        ]
+        changes = status_digest.transitions(audits)
+        self.assertEqual(
+            [(c["from"], c["to"]) for c in changes],
+            [(None, "INTACT"), ("INTACT", "TRUSTWORTHY"),
+             ("TRUSTWORTHY", "BROKEN"), ("BROKEN", "TRUSTWORTHY")],
+        )
+        # each change carries when and where it happened
+        self.assertEqual(changes[2]["at"], "t4")
+        self.assertEqual(changes[2]["audit_id"], 4)
+
+    def test_no_audits_is_no_transitions(self):
+        self.assertEqual(status_digest.transitions([]), [])
+
+    def test_a_steady_posture_is_a_single_transition_from_null(self):
+        audits = [self._audit(i, True, True, f"t{i}") for i in range(1, 4)]
+        changes = status_digest.transitions(audits)
+        self.assertEqual(len(changes), 1)
+        self.assertEqual((changes[0]["from"], changes[0]["to"]), (None, "TRUSTWORTHY"))
+
+
 class SignVerifyTests(unittest.TestCase):
     def test_sign_then_verify_roundtrip(self):
         sig = status_digest.sign("secret", BASE)

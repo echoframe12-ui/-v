@@ -48,6 +48,32 @@ def posture_of(verify: dict[str, Any]) -> str:
     return "INTACT"
 
 
+def transitions(audits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The posture change-points across an ordered (oldest-first) audit trail.
+
+    Each drift audit records `intact`/`trustworthy`, from which `posture_of` reads
+    the same three-way verdict the status board and digest use. This collapses a run
+    of identical postures into the moments the verdict actually *changed* — the
+    answer to "when did trust go BROKEN, when was it sealed back to TRUSTWORTHY" —
+    without a new ledger: it is the posture the audit trail already saw, made legible.
+    A change from nothing (the first observed posture) has `from` = null.
+    """
+    out: list[dict[str, Any]] = []
+    prev: str | None = None
+    for audit in audits:
+        posture = posture_of(audit)
+        if posture != prev:
+            out.append({
+                "from": prev,
+                "to": posture,
+                "at": audit.get("checked_at"),
+                "length": audit.get("length"),
+                "audit_id": audit.get("id"),
+            })
+            prev = posture
+    return out
+
+
 def build_payload(
     verify: dict[str, Any],
     cvi_value: float,

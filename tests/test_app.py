@@ -955,6 +955,28 @@ class OceanicOSAppTests(unittest.TestCase):
         finally:
             app_module.auth_registry.admin_users.discard("drift-steward")
 
+    def test_posture_history_reports_the_verdict_over_time(self):
+        app_module.auth_registry.admin_users.add("posture-steward")
+        try:
+            admin = self.client.post(
+                "/auth/register", data=json.dumps({"username": "posture-steward"}),
+                content_type="application/json",
+            ).get_json()["token"]
+            app_module.attestation_engine.attest("posture-doc", "body", ["plan"], 0.9)
+            # an audit records the current posture into the drift trail
+            self.client.post("/attestations/audit", headers={"Authorization": f"Bearer {admin}"})
+            hist = self.client.get("/posture/history").get_json()
+            self.assertIn(hist["current"], ("TRUSTWORTHY", "INTACT", "BROKEN"))
+            # transitions are change-points; the first has from == null
+            self.assertTrue(hist["transitions"])
+            self.assertIsNone(hist["transitions"][0]["from"])
+            self.assertIn(hist["transitions"][-1]["to"], ("TRUSTWORTHY", "INTACT", "BROKEN"))
+            self.assertGreaterEqual(hist["audits_considered"], 1)
+            # a bad limit is rejected
+            self.assertEqual(self.client.get("/posture/history?limit=xyz").status_code, 400)
+        finally:
+            app_module.auth_registry.admin_users.discard("posture-steward")
+
     def test_metrics_carries_last_audit_intact(self):
         body = self.client.get("/metrics").get_data(as_text=True)
         self.assertIn("oceanicos_last_audit_intact", body)
