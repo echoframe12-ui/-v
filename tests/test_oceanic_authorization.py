@@ -1,3 +1,15 @@
+"""Tests for oceanic_authorization.py — explicit authorization gate.
+
+Covers:
+  - pending attestation cannot execute
+  - human can authorize verified attestation
+  - rejection blocks execution
+  - empty reviewer raises AuthorizationError
+  - empty reason raises AuthorizationError
+  - rejected attestation has human authority
+  - authorized attestation preserves contract_id and evidence
+  - rejection reason is preserved
+"""
 import unittest
 
 from oceanic_attestation import Authorization, create_attestation
@@ -7,6 +19,7 @@ from oceanic_orchestrator import OceanicOrchestrator, default_adapters
 
 
 class OceanicAuthorizationTests(unittest.TestCase):
+
     def setUp(self):
         contract = OceanicIRContract(
             api_version="oceanic.ir/v0.1",
@@ -56,6 +69,32 @@ class OceanicAuthorizationTests(unittest.TestCase):
         with self.assertRaises(AuthorizationError):
             authorize(self.attestation, reviewer="", reason="missing reviewer")
 
+    def test_empty_reason_raises_authorization_error(self):
+        with self.assertRaises(AuthorizationError):
+            authorize(self.attestation, reviewer="alice", reason="")
+        with self.assertRaises(AuthorizationError):
+            reject(self.attestation, reviewer="alice", reason="   ")
+
+    def test_rejected_attestation_has_human_authority(self):
+        rejected = reject(
+            self.attestation, reviewer="bob", reason="insufficient evidence"
+        )
+        self.assertEqual(rejected.authorization.authority, "human")
+        self.assertEqual(rejected.authorization.reviewer, "bob")
+        self.assertEqual(rejected.authorization.reason, "insufficient evidence")
+
+    def test_authorized_preserves_aggregate_and_adapters(self):
+        authorized = authorize(
+            self.attestation, reviewer="alice", reason="verified"
+        )
+        self.assertEqual(authorized.adapters, self.attestation.adapters)
+        self.assertEqual(authorized.aggregate, self.attestation.aggregate)
+
+    def test_reject_empty_reviewer_raises(self):
+        with self.assertRaises(AuthorizationError):
+            reject(self.attestation, reviewer="", reason="valid reason")
+
 
 if __name__ == "__main__":
     unittest.main()
+

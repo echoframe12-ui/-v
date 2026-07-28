@@ -1,3 +1,16 @@
+"""Tests for anchor.py — The Anchor of Last Resort (2019 offline dataset).
+
+Covers:
+  - Anchor file presence and row count (365 rows)
+  - Recorded sha256 matches recomputed body sha256 (integrity_ok)
+  - Lookup returns correct 2019 weekdays cross-checked with stdlib calendar
+  - Missing/invalid date returns None
+  - Absent anchor file reports present: False without raising
+  - Tampered anchor body fails integrity (integrity_ok: False)
+  - anchor_line on missing anchor file returns None
+  - load_anchor dict contains expected keys (present, source, rows, sha256, integrity_ok, header)
+  - load_anchor source path matches input or default
+"""
 import calendar
 import hashlib
 import os
@@ -12,6 +25,7 @@ except ImportError:
 
 
 class AnchorTests(unittest.TestCase):
+
     def test_the_anchor_file_ships_and_is_present(self):
         state = anchor.load_anchor()
         self.assertTrue(state["present"])
@@ -35,8 +49,14 @@ class AnchorTests(unittest.TestCase):
         self.assertIsNone(anchor.anchor_line("2019-13-40"))
 
     def test_absent_anchor_reports_not_present_without_raising(self):
-        state = anchor.load_anchor(path=tempfile.mktemp(suffix=".txt"))
+        path = tempfile.mktemp(suffix=".txt")
+        state = anchor.load_anchor(path=path)
         self.assertFalse(state["present"])
+        self.assertEqual(state["source"], path)
+
+    def test_anchor_line_on_missing_file_returns_none(self):
+        path = tempfile.mktemp(suffix=".txt")
+        self.assertIsNone(anchor.anchor_line("2019-01-01", path=path))
 
     def test_tampered_anchor_fails_integrity(self):
         handle = tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w")
@@ -54,6 +74,15 @@ class AnchorTests(unittest.TestCase):
         finally:
             safe_remove(handle.name)
 
+    def test_load_anchor_dict_keys(self):
+        state = anchor.load_anchor()
+        expected_keys = {"present", "source", "rows", "sha256", "integrity_ok", "header"}
+        self.assertEqual(set(state.keys()), expected_keys)
+
+    def test_anchor_path_constant_exists(self):
+        self.assertTrue(anchor.ANCHOR_PATH.name.endswith(".txt"))
+
 
 if __name__ == "__main__":
     unittest.main()
+
