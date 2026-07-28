@@ -3,6 +3,10 @@ import tempfile
 import unittest
 
 from supersession import SupersessionLog
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class SupersessionLogTests(unittest.TestCase):
@@ -13,8 +17,7 @@ class SupersessionLogTests(unittest.TestCase):
         self.log = SupersessionLog(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_record_and_lineage(self):
         self.log.record(1, 2, "alice", "re-verified the revised charter")

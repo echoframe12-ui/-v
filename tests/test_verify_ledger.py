@@ -10,8 +10,24 @@ import status_digest
 from attestation import GENESIS_HASH, AttestationEngine, link_hash
 from verify_ledger import current_ids, verify_bundle, verify_digest, verify_receipt, _is_trustworthy
 
+import gc
+import time
+
 KEY = "operator-secret"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _safe_remove(path):
+    if not path or not os.path.exists(path):
+        return
+    gc.collect()
+    for _ in range(5):
+        try:
+            os.remove(path)
+            return
+        except PermissionError:
+            gc.collect()
+            time.sleep(0.02)
 
 
 def _make_bundle(db_path, key=KEY, checkpoint=True):
@@ -31,8 +47,7 @@ class VerifyBundleTests(unittest.TestCase):
         self.bundle = _make_bundle(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        _safe_remove(self.db_path)
 
     def test_good_bundle_is_intact_and_trustworthy(self):
         report = verify_bundle(self.bundle, key=KEY)
@@ -96,8 +111,7 @@ class VerifyBundleTests(unittest.TestCase):
             self.assertTrue(report["intact"])
             self.assertFalse(report["checkpointed"])
         finally:
-            if os.path.exists(engine_path):
-                os.remove(engine_path)
+            _safe_remove(engine_path)
 
 
 def _attach_digest(bundle, key=KEY, **override):
@@ -126,8 +140,7 @@ class VerifyDigestTests(unittest.TestCase):
         self.bundle = _make_bundle(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        _safe_remove(self.db_path)
 
     def test_matching_digest_is_valid_and_consistent(self):
         bundle = _attach_digest(self.bundle)
@@ -176,8 +189,7 @@ class VerifyReceiptTests(unittest.TestCase):
         self.engine.attest("subj-b", "another", [], 0.4)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        _safe_remove(self.db_path)
 
     def test_a_genuine_receipt_verifies_independently(self):
         receipt = self.engine.receipt(1)
@@ -229,8 +241,7 @@ class VerifyLedgerCliTests(unittest.TestCase):
 
     def tearDown(self):
         for path in (self.db_path, self.bundle_path):
-            if os.path.exists(path):
-                os.remove(path)
+            _safe_remove(path)
 
     def _run(self, *args):
         return subprocess.run(

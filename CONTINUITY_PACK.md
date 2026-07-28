@@ -72,20 +72,139 @@ CONTINUOUS BECOMING
 
 ## Known Integration Priority
 
-The next major engineering objective is to connect the existing lifecycle components through a single coordinator without duplicating their logic:
+**Completed as of 2026-07-28 /goal session:**
 
 ```text
 contract.created
-→ verification.completed
-→ attestation.created
-→ authorization.granted / authorization.rejected
-→ runtime.observed
-→ observation.matched / observation.deviated
-→ evolution.proposed
-→ human.review.required
+→ verification.completed         ✅ OceanicOrchestrator + adapters
+→ attestation.created            ✅ oceanic_attestation.py
+→ authorization.granted          ✅ oceanic_authorization.py
+→ runtime.observed               ✅ oceanic_observer.py
+→ observation.matched/deviated   ✅ oceanic_observer.py
+→ evolution.proposed             ✅ oceanic_evolution.py
+→ human.review.required          ✅ oceanic_evolution.py (requires_human_review)
 ```
 
-The event ledger should become the durable record of these transitions.
+The event ledger is the durable record of all transitions. REST API is wired.
+
+## VaaS API Surface (Live)
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/oceanic/contracts` | POST | Validate IR contract structure |
+| `/oceanic/verify` | POST | Multi-adapter compilation report |
+| `/oceanic/attest` | POST | Create durable attestation |
+| `/oceanic/lifecycle/run` | POST | Full pipeline (verify→attest→authorize→observe→evolve) |
+| `/oceanic/lifecycle/events` | GET | Append-only ledger history |
+| `/oceanic/lifecycle/chain/verify` | GET | Ledger hash-chain integrity |
+| `/oceanic/drift/stats` | GET | Deviation rate from drift audit log |
+| `/oceanic/perspectives` | POST | Cross-model dissent analysis (no winner declared) |
+
+## Current Handoff State
+
+### Completed (2026-07-28)
+
+- Full VaaS REST API: 8 new Oceanic endpoints live in `app.py`
+- `test_oceanic_vaas.py`: 26 tests covering all Oceanic VaaS endpoints
+- Drift integration: deviation lifecycle events → `drift_audit_log`
+- Perspectives engine: `perspectives.py` + `compare_perspectives` wired into `/oceanic/perspectives`
+- **511 total tests — all passing** (clean DB required: delete `oceanicos.db` between runs)
+
+### Current State
+
+- All lifecycle pipeline stages wired end-to-end.
+- Drift audit records lifecycle deviations as non-intact events.
+- Cross-model dissent surfaces through the perspectives comparison layer.
+- `oceanic_lifecycle.jsonl`: separate JSONL ledger for Oceanic events.
+
+### Known Gaps
+
+- `oceanicos.db` is shared across all test modules — absolute-count tests (e.g. `stats["total"] == 2`) fail if run on a DB with prior state. Fix: run `Remove-Item oceanicos.db` before test suite.
+- OpenAPI spec auto-generated from live routes (`/openapi.json`) — covers all VaaS endpoints automatically.
+- Multi-provider PerspectiveAdapter (real LLM/model integration) remains as a future evolution.
+
+### Next Action
+
+> **Git commit** the completed `/goal` session: VaaS REST API + perspectives engine + drift stats + 511 passing tests.
+
+## Verification Discipline
+
+- Do not silently rewrite historical attestations.
+- Do not automatically convert runtime deviation into a contract mutation.
+- Evolution begins as a proposal.
+- Human authorization remains an explicit boundary for consequential execution or changes.
+- Preserve dissent and uncertainty as first-class evidence.
+- Prefer local-first operation and graceful degradation.
+- Treat tests, Git history, attestations, and ledger events as complementary evidence.
+
+## Multi-Repository Continuity
+
+When continuing from another GitHub account or repository:
+
+```text
+SOURCE REPOSITORY
+      ↓
+READ CONTINUITY PACK
+      ↓
+INSPECT TARGET REPOSITORY
+      ↓
+VERIFY STATE
+      ↓
+BUILD / TEST / CLEAN
+      ↓
+COMMIT
+      ↓
+UPDATE CONTINUITY PACK
+      ↓
+NEXT REPOSITORY
+```
+
+Repositories A, B, and C are not separate conceptual projects. They are continuation points in one engineering process. Each repository remains responsible for its own source of truth; continuity is maintained through versioned code, tests, documentation, Git history, and explicit handoffs.
+
+## Handoff Template
+
+At the end of each development session, record:
+
+### Completed
+
+- What was actually implemented.
+- What was actually tested.
+- Commit SHA(s).
+
+### Current State
+
+- What is working.
+- What is partially integrated.
+- What remains unverified.
+
+### Known Gaps
+
+- Missing modules.
+- Failing tests.
+- Integration gaps.
+- Documentation gaps.
+
+### Next Action
+
+State the **single highest-value next engineering action**.
+
+### Principle
+
+> **Zero is not starting over. Zero is the point from which the next verified state emerges.**
+
+## Continuity Equation
+
+```text
+A → B → C → A → ∞
+
+one project
++ persistent state
++ verified handoffs
++ continuous testing
++ continuous improvement
+= continuous becoming
+```
+
 
 ## Verification Discipline
 

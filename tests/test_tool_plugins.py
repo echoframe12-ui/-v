@@ -13,6 +13,10 @@ from tool_plugins import (
     WorkspaceTools,
     install_tool_plugins,
 )
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 def fake_response(payload):
@@ -63,8 +67,7 @@ class CalendarToolsTests(unittest.TestCase):
         self.calendar = CalendarTools(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_add_and_list_events(self):
         event = self.calendar.add_event(
@@ -89,8 +92,7 @@ class GitHubToolsTests(unittest.TestCase):
         self.github = GitHubTools(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_repo_info_shapes_and_caches(self):
         api_payload = {
@@ -167,7 +169,7 @@ class InstallToolPluginsTests(unittest.TestCase):
             events = service.invoke_tool("calendar_list", {})
             self.assertEqual(events["count"], 1)
         finally:
-            os.remove(handle.name)
+            safe_remove(handle.name)
 
 
 if __name__ == "__main__":

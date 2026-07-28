@@ -3,6 +3,10 @@ import tempfile
 import unittest
 
 import readiness
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class ReadinessTests(unittest.TestCase):
@@ -13,8 +17,7 @@ class ReadinessTests(unittest.TestCase):
         self.workspace = tempfile.mkdtemp(prefix="oceanicos-ready-")
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_db_check_passes_for_a_real_database(self):
         self.assertTrue(readiness.check_db(self.db_path))

@@ -13,6 +13,10 @@ from attestation import (
     link_hash,
     score_confidence,
 )
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class ConsensusDeltaTests(unittest.TestCase):
@@ -71,8 +75,7 @@ class AttestationEngineTests(unittest.TestCase):
         self.db_path = handle.name
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_attest_hashes_content(self):
         engine = AttestationEngine(self.db_path)
@@ -260,8 +263,7 @@ class SignedCheckpointTests(unittest.TestCase):
         self.db_path = handle.name
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_checkpoint_requires_a_signing_key(self):
         engine = AttestationEngine(self.db_path, signing_key="")
@@ -359,8 +361,7 @@ class ByContentHashTests(unittest.TestCase):
         self.engine = AttestationEngine(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_finds_attestations_of_a_content_hash(self):
         entry = self.engine.attest("subj", "the exact output", [], 0.9)
@@ -386,8 +387,7 @@ class SubjectHistoryTests(unittest.TestCase):
         self.engine = AttestationEngine(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_timeline_tracks_reverification_and_trend(self):
         # the same subject re-verified three times, with changing content and confidence
@@ -427,8 +427,7 @@ class ReceiptTests(unittest.TestCase):
         self.db_path = handle.name
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_receipt_reports_position_and_hash(self):
         engine = AttestationEngine(self.db_path)
@@ -481,8 +480,7 @@ class StatsTests(unittest.TestCase):
         self.engine.attest("c", "3", [], 0.2, actor="bob")     # held, 0.00-0.25
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_empty_record_is_zeroed(self):
         empty = AttestationEngine(self.db_path + ".empty")
@@ -492,8 +490,7 @@ class StatsTests(unittest.TestCase):
             self.assertEqual(s["by_actor"], {})
             self.assertEqual(sum(s["confidence_buckets"].values()), 0)
         finally:
-            if os.path.exists(self.db_path + ".empty"):
-                os.remove(self.db_path + ".empty")
+            safe_remove(self.db_path + ".empty")
 
     def test_totals_and_ratio_match_the_record(self):
         s = self.engine.stats()
@@ -539,8 +536,7 @@ class StatsTests(unittest.TestCase):
             self.assertEqual(s["sourced"], 0)
             self.assertEqual(s["sourced_ratio"], 0.0)
         finally:
-            if os.path.exists(self.db_path + ".src"):
-                os.remove(self.db_path + ".src")
+            safe_remove(self.db_path + ".src")
 
 
 class SearchTests(unittest.TestCase):
@@ -554,8 +550,7 @@ class SearchTests(unittest.TestCase):
         self.engine.attest("deploy-step", "c", [], 0.95, actor="alice")
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_no_filters_returns_everything(self):
         self.assertEqual(len(self.engine.search()), 3)
@@ -595,8 +590,7 @@ class AutoCheckpointTests(unittest.TestCase):
         self.db_path = handle.name
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_seals_automatically_once_the_cadence_is_reached(self):
         engine = AttestationEngine(self.db_path, signing_key="k", checkpoint_every=2)
@@ -643,8 +637,7 @@ class ExportTests(unittest.TestCase):
         self.db_path = handle.name
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_export_carries_the_whole_sealed_record(self):
         engine = AttestationEngine(self.db_path, signing_key="k")

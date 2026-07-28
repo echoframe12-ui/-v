@@ -7,6 +7,10 @@ from contextlib import redirect_stdout
 
 import oceanic_os
 from attestation import CONFIDENCE_THRESHOLD, AttestationEngine
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class BootTests(unittest.TestCase):
@@ -83,8 +87,7 @@ class SubcommandTests(unittest.TestCase):
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = prev
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def _run(self, argv):
         buffer = io.StringIO()

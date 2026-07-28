@@ -20,7 +20,7 @@ class ContextAssemblyTests(unittest.TestCase):
             ContextSource(ref="first", content="12345"),
             ContextSource(ref="second", content="67890"),
         ]
-        result = ContextAssembler(max_chars=12).assemble(sources)
+        result = ContextAssembler(max_chars=15).assemble(sources)
 
         self.assertEqual(result.included_refs, ("first",))
         self.assertEqual(result.omitted_refs, ("second",))

@@ -3,6 +3,10 @@ import tempfile
 import unittest
 
 from cvi_history import CviHistory
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 def snap(cvi, samples, mean=0.8, held=0.0):
@@ -17,8 +21,7 @@ class CviHistoryTests(unittest.TestCase):
         self.history = CviHistory(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_record_and_list_oldest_first(self):
         self.history.record(snap(0.5, 1))

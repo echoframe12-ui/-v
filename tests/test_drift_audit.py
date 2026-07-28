@@ -3,6 +3,10 @@ import tempfile
 import unittest
 
 from drift_audit import DriftAuditLog
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class DriftAuditLogTests(unittest.TestCase):
@@ -13,8 +17,7 @@ class DriftAuditLogTests(unittest.TestCase):
         self.log = DriftAuditLog(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_records_an_intact_report(self):
         entry = self.log.record({"intact": True, "trustworthy": True, "length": 3, "broken_at": None})

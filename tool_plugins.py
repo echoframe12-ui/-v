@@ -38,7 +38,7 @@ class WorkspaceTools:
         if not self.root.exists():
             return {"files": [], "count": 0}
         files = sorted(
-            str(path.relative_to(self.root))
+            path.relative_to(self.root).as_posix()
             for path in self.root.glob(pattern)
             if path.is_file()
         )

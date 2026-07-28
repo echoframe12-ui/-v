@@ -5,6 +5,10 @@ import tempfile
 import unittest
 
 import anchor
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class AnchorTests(unittest.TestCase):
@@ -48,7 +52,7 @@ class AnchorTests(unittest.TestCase):
             self.assertTrue(state["present"])
             self.assertFalse(state["integrity_ok"])
         finally:
-            os.remove(handle.name)
+            safe_remove(handle.name)
 
 
 if __name__ == "__main__":

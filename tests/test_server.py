@@ -3,6 +3,10 @@ import tempfile
 import unittest
 
 from server import OceanicOSService
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class OceanicOSServiceTests(unittest.TestCase):
@@ -12,8 +16,7 @@ class OceanicOSServiceTests(unittest.TestCase):
         self.service = OceanicOSService(self.temp_db.name)
 
     def tearDown(self):
-        if os.path.exists(self.temp_db.name):
-            os.remove(self.temp_db.name)
+        safe_remove(self.temp_db.name)
 
     def test_health_reports_ok(self):
         self.assertEqual(self.service.health()["status"], "ok")

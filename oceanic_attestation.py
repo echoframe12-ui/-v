@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from oceanic_orchestrator import VerificationReport
+from oceanic_orchestrator import CompilationReport, VerificationReport
 
 
 @dataclass(frozen=True)
@@ -52,34 +52,49 @@ class Attestation:
 
 
 def create_attestation(
-    report: VerificationReport,
+    report: CompilationReport,
     *,
     authorization: Authorization | None = None,
 ) -> Attestation:
     """Convert one consolidated verification report into durable evidence."""
     created_at = datetime.now(timezone.utc).isoformat()
+
+    # Derive overall status from CompilationReport results.
+    has_supported = any(r.supported for r in report.results)
+    has_dissent = bool(report.dissent)
+    if has_supported and not has_dissent:
+        overall_status = "proved"
+    elif has_supported:
+        overall_status = "proved_with_dissent"
+    else:
+        overall_status = "not_proved"
+
     adapter_records = tuple(
         {
-            "language": run.language,
-            "adapter_version": run.manifest.adapter_version,
-            "implementation_digest": run.implementation_digest,
-            "proof_status": run.outcome.status.value,
-            "confidence": run.outcome.confidence,
-            "dissent": list(run.outcome.dissent),
+            "language": result.language,
+            "adapter_version": "1.0",
+            "implementation_digest": hashlib.sha256(
+                json.dumps(result.proof, sort_keys=True, default=str).encode("utf-8")
+            ).hexdigest(),
+            "proof_status": "proved" if result.supported else "not_proved",
+            "confidence": result.confidence,
+            "dissent": list(result.dissent),
         }
-        for run in report.runs
+        for result in report.results
     )
+
+    aggregate = {
+        "status": overall_status,
+        "confidence": report.confidence,
+        "dissent": list(report.dissent),
+    }
 
     seed = json.dumps(
         {
             "contract_id": report.contract_id,
             "created_at": created_at,
             "adapters": adapter_records,
-            "aggregate": {
-                "status": report.overall_status.value,
-                "confidence": report.confidence,
-                "dissent": list(report.dissent),
-            },
+            "aggregate": aggregate,
         },
         sort_keys=True,
         default=str,
@@ -93,11 +108,8 @@ def create_attestation(
         contract_id=report.contract_id,
         created_at=created_at,
         adapters=adapter_records,
-        aggregate={
-            "status": report.overall_status.value,
-            "confidence": report.confidence,
-            "dissent": list(report.dissent),
-        },
+        aggregate=aggregate,
         authorization=authorization or Authorization(),
         runtime=RuntimeState(),
     )
+

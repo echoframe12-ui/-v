@@ -89,7 +89,13 @@ def boot(manifest_path: str = DEFAULT_MANIFEST, stateless: bool = True) -> dict[
     engine = AttestationEngine(db_path)
     policy = engine.checkpoint_policy
     if stateless:
-        os.remove(db_path)
+        del engine
+        import gc
+        gc.collect()
+        try:
+            os.remove(db_path)
+        except PermissionError:
+            pass
 
     panel = _panel()
     anchor_state = anchor.load_anchor()
@@ -245,7 +251,7 @@ def _cmd_digest(argv: list[str]) -> int:
     key = args.key or os.getenv("OCEANICOS_SIGNING_KEY") or None
 
     if args.verify is not None:
-        raw = sys.stdin.read() if args.verify == "-" else open(args.verify).read()
+        raw = sys.stdin.read() if args.verify == "-" else Path(args.verify).read_text(encoding="utf-8")
         digest = json.loads(raw)
         valid = status_digest.verify(digest, digest.get("signature"), key)
         print(
@@ -300,9 +306,9 @@ def _cmd_receipt(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     if args.verify is not None:
-        raw = sys.stdin.read() if args.verify == "-" else open(args.verify).read()
+        raw = sys.stdin.read() if args.verify == "-" else Path(args.verify).read_text(encoding="utf-8")
         receipt = json.loads(raw)
-        content = open(args.content_file).read() if args.content_file else None
+        content = Path(args.content_file).read_text(encoding="utf-8") if args.content_file else None
         result = verify_ledger.verify_receipt(receipt, content=content)
         # success = the entry hash recomputes and, if content was given, it binds
         ok = result["entry_hash_valid"] and result["content_matches"] is not False

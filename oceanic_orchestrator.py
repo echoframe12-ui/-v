@@ -117,3 +117,8 @@ def default_adapters() -> tuple[OceanicAdapter, ...]:
             capabilities=("arithmetic_correctness",),
         ),
     )
+
+
+# Backward-compat alias so that modules importing VerificationReport continue
+# to work while the canonical public name is CompilationReport.
+VerificationReport = CompilationReport

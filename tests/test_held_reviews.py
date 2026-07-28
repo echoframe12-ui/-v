@@ -4,6 +4,10 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from held_reviews import RELEASE, UPHOLD, HeldReviewLog, sla_status
+try:
+    from tests.test_helpers import safe_remove
+except ImportError:
+    from test_helpers import safe_remove
 
 
 class HeldReviewLogTests(unittest.TestCase):
@@ -14,8 +18,7 @@ class HeldReviewLogTests(unittest.TestCase):
         self.log = HeldReviewLog(self.db_path)
 
     def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+        safe_remove(self.db_path)
 
     def test_record_and_list(self):
         entry = self.log.record(7, "steward", RELEASE, "evidence checked out")

@@ -1772,6 +1772,336 @@ def list_plugins():
     return jsonify(plugin_registry.list())
 
 
+# ---------------------------------------------------------------------------
+# Oceanic VaaS — Verification-as-a-Service (💧 Ω∞v)
+# ---------------------------------------------------------------------------
+# Lazy imports so tests that do not require the Oceanic stack can still run.
+from oceanic_ir import OceanicIRContract
+from oceanic_orchestrator import OceanicOrchestrator, default_adapters
+from oceanic_attestation import create_attestation as _oceanic_create_attestation
+from oceanic_authorization import authorize as _oceanic_authorize, AuthorizationError
+from oceanic_event_ledger import EventLedger
+from oceanic_lifecycle import OceanicLifecycle
+from oceanic_orchestrator import CompilationReport
+
+# Shared orchestrator using default adapter perspectives.
+_oceanic_orchestrator = OceanicOrchestrator(default_adapters())
+
+# Persistent lifecycle ledger (append-only, hash-chained).
+_oceanic_ledger = EventLedger(
+    os.path.join(os.path.dirname(str(service.db_path)), "oceanic_lifecycle.jsonl")
+)
+
+
+@app.route("/oceanic/contracts", methods=["POST"])
+def oceanic_validate_contract():
+    """Validate an Oceanic IR contract structure.
+
+    Accepts a JSON body with the full contract fields. Returns the parsed
+    contract as a canonical dict if valid, or a 400 error describing the
+    first validation failure.
+    """
+    payload = request.get_json(silent=True) or {}
+    try:
+        contract = OceanicIRContract.from_dict(payload)
+    except (KeyError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"valid": True, "contract": contract.to_dict()})
+
+
+@app.route("/oceanic/verify", methods=["POST"])
+def oceanic_verify():
+    """Run an Oceanic IR contract through all adapter perspectives.
+
+    Returns a CompilationReport: per-adapter results, aggregate confidence,
+    and the full dissent record. Does not create an attestation.
+    """
+    payload = request.get_json(silent=True) or {}
+    try:
+        contract = OceanicIRContract.from_dict(payload)
+    except (KeyError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    report: CompilationReport = _oceanic_orchestrator.run(contract)
+    return jsonify(
+        {
+            "contract_id": report.contract_id,
+            "adapter_count": len(report.results),
+            "confidence": report.confidence,
+            "dissent": list(report.dissent),
+            "adapters": [
+                {
+                    "language": r.language,
+                    "supported": r.supported,
+                    "confidence": r.confidence,
+                    "dissent": list(r.dissent),
+                }
+                for r in report.results
+            ],
+        }
+    )
+
+
+@app.route("/oceanic/attest", methods=["POST"])
+def oceanic_attest():
+    """Verify a contract and produce a durable attestation.
+
+    Body: the IR contract JSON. Optionally include ``reviewer`` and
+    ``reason`` to immediately authorize the attestation. Returns the full
+    attestation dict including its digest, aggregate status, and
+    authorization state.
+    """
+    payload = request.get_json(silent=True) or {}
+    reviewer = payload.pop("reviewer", None)
+    reason = payload.pop("reason", None)
+
+    try:
+        contract = OceanicIRContract.from_dict(payload)
+    except (KeyError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    report = _oceanic_orchestrator.run(contract)
+    attestation = _oceanic_create_attestation(report)
+
+    if reviewer and reason:
+        try:
+            attestation = _oceanic_authorize(
+                attestation, reviewer=reviewer, reason=reason
+            )
+        except AuthorizationError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    _oceanic_ledger.append(
+        "attestation.created",
+        attestation.attestation_id,
+        {"contract_id": contract.contract_id, "via": "api"},
+    )
+
+    return jsonify(attestation.to_dict()), 201
+
+
+@app.route("/oceanic/lifecycle/run", methods=["POST"])
+def oceanic_lifecycle_run():
+    """Run the full Ω∞v lifecycle pipeline end-to-end.
+
+    Body fields:
+      - contract: the full IR contract dict (required)
+      - reviewer: human reviewer identifier (required)
+      - reason: authorization reason (required)
+      - expected: the expected runtime result for observation (required)
+      - execute: ignored at REST boundary — the server uses a null executor
+        returning ``null``; supply ``execute_value`` to override the observed
+        runtime value for testing and deterministic scenarios.
+
+    Returns lifecycle result: report, attestation, observation, and
+    evolution proposal (if any). All transitions are recorded in the
+    append-only ledger.
+    """
+    payload = request.get_json(silent=True) or {}
+    reviewer = payload.get("reviewer", "")
+    reason = payload.get("reason", "")
+    expected = payload.get("expected")
+    execute_value = payload.get("execute_value")
+    contract_data = payload.get("contract", {})
+
+    if not reviewer or not reason:
+        return jsonify({"error": "reviewer and reason are required"}), 400
+
+    try:
+        contract = OceanicIRContract.from_dict(contract_data)
+    except (KeyError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        lifecycle = OceanicLifecycle(_oceanic_orchestrator, _oceanic_ledger)
+        result = lifecycle.run(
+            contract,
+            reviewer=reviewer,
+            authorization_reason=reason,
+            execute=lambda: execute_value,
+            expected=expected,
+        )
+    except AuthorizationError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    # Record deviation drift for the audit log.
+    if result.observation.status == "deviated":
+        drift_audit_log.record(
+            {
+                "intact": False,
+                "trustworthy": False,
+                "length": 0,
+                "broken_at": contract.contract_id,
+            }
+        )
+
+    return jsonify(
+        {
+            "observation_status": result.observation.status,
+            "attestation_id": result.attestation.attestation_id,
+            "attestation_digest": result.attestation.digest(),
+            "contract_id": result.attestation.contract_id,
+            "aggregate": result.attestation.aggregate,
+            "authorization_status": result.attestation.authorization.status,
+            "runtime_digest": result.observation.runtime_digest,
+            "deviations": list(result.observation.deviations),
+            "evolution": result.evolution.to_dict() if result.evolution else None,
+        }
+    )
+
+
+@app.route("/oceanic/lifecycle/events", methods=["GET"])
+def oceanic_lifecycle_events():
+    """Return the full lifecycle event ledger history.
+
+    Each event is a hash-chained record of a lifecycle transition:
+    contract.created, verification.completed, attestation.created,
+    authorization.granted, runtime.observed, observation.*, evolution.proposed,
+    human.review.required.
+    """
+    limit = request.args.get("limit", type=int) if "limit" in request.args else None
+    events = list(_oceanic_ledger.history())
+    if limit is not None:
+        events = events[-limit:]
+    return jsonify(
+        [
+            {
+                "sequence": e.sequence,
+                "event_type": e.event_type,
+                "entity_id": e.entity_id,
+                "timestamp": e.timestamp,
+                "payload": e.payload,
+                "event_digest": e.event_digest,
+            }
+            for e in events
+        ]
+    )
+
+
+@app.route("/oceanic/lifecycle/chain/verify", methods=["GET"])
+def oceanic_lifecycle_chain_verify():
+    """Verify the integrity of the lifecycle event ledger hash chain.
+
+    Returns ``{"intact": true}`` when the append-only hash chain is
+    unbroken; ``{"intact": false}`` if any event has been tampered with.
+    """
+    intact = _oceanic_ledger.verify_chain()
+    event_count = len(_oceanic_ledger.history())
+    return jsonify({"intact": intact, "event_count": event_count})
+
+
+
+# ---------------------------------------------------------------------------
+# Oceanic Drift Stats — Stream 3
+# ---------------------------------------------------------------------------
+
+
+@app.route("/oceanic/drift/stats", methods=["GET"])
+def oceanic_drift_stats():
+    """Aggregate lifecycle deviation stats from the drift audit log.
+
+    Returns totals, intact/non-intact split, and the most recent entry.
+    ``?limit=`` caps the history list; omit for all entries.
+    """
+    limit = request.args.get("limit", type=int) if "limit" in request.args else None
+    if "limit" in request.args and limit is None:
+        return jsonify({"error": "limit must be an integer"}), 400
+
+    all_entries = drift_audit_log.list()
+    total = len(all_entries)
+    intact_count = sum(1 for e in all_entries if e["intact"])
+    deviated_count = total - intact_count
+    deviated_ratio = round(deviated_count / total, 4) if total else 0.0
+
+    history = all_entries[:limit] if limit else all_entries
+    return jsonify(
+        {
+            "total_audits": total,
+            "intact": intact_count,
+            "deviated": deviated_count,
+            "deviated_ratio": deviated_ratio,
+            "latest": drift_audit_log.latest(),
+            "history": history,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Oceanic Perspectives — Stream 4 (Multi-Model Dissent)
+# ---------------------------------------------------------------------------
+from perspectives import make_perspective, compare_perspectives
+from context_assembly import ContextAssembler, ContextSource
+
+
+@app.route("/oceanic/perspectives", methods=["POST"])
+def oceanic_perspectives():
+    """Run a contract through adapters and return a cross-model dissent analysis.
+
+    Uses ``perspectives.compare_perspectives`` to surface agreement/disagreement
+    across adapters without declaring a winner. Dissent is data.
+
+    Body: the full IR contract JSON.
+    Returns: per-adapter perspectives plus a comparison record showing the
+    dissent flag, all context hashes, and all source refs.
+    """
+    payload = request.get_json(silent=True) or {}
+    try:
+        contract = OceanicIRContract.from_dict(payload)
+    except (KeyError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    # Build a shared context representing the contract as a single source.
+    assembler = ContextAssembler()
+    ctx_source = ContextSource(
+        ref=f"contract:{contract.contract_id}",
+        content=str(contract.to_dict()),
+        authority="oceanic-ir",
+    )
+    context = assembler.assemble([ctx_source])
+
+    report = _oceanic_orchestrator.run(contract)
+
+    # Wrap each adapter's result in a perspective for cross-model comparison.
+    perspectives_list = [
+        make_perspective(
+            perspective_id=f"{r.language}:{contract.contract_id}",
+            provider="oceanic-adapter",
+            model=r.language,
+            response={
+                "supported": r.supported,
+                "confidence": r.confidence,
+                "dissent": list(r.dissent),
+            },
+            context=context,
+            confidence=r.confidence,
+            metadata={"contract_id": contract.contract_id},
+        )
+        for r in report.results
+    ]
+
+    comparison = compare_perspectives(perspectives_list)
+
+    return jsonify(
+        {
+            "contract_id": contract.contract_id,
+            "aggregate_confidence": report.confidence,
+            "dissent_flag": comparison["dissent"],
+            "context_hash": context.content_hash,
+            "perspectives": [
+                {
+                    "id": p.id,
+                    "model": p.model,
+                    "confidence": p.confidence,
+                    "response": p.response,
+                    "context_hash": p.context_hash,
+                }
+                for p in perspectives_list
+            ],
+            "comparison": comparison,
+        }
+    )
+
+
 def main() -> None:
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "5000"))
