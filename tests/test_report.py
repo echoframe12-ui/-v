@@ -1,3 +1,14 @@
+"""Tests for report.py — trust report rendering.
+
+Covers:
+  - render() includes posture, chain, CVI, source coverage, dissent
+  - at-peak note when cvi equals cvi_peak
+  - broken chain and missing seal/audit
+  - held queue rendering
+  - generated_at and threshold in header
+  - ledger table rows from footprint
+  - report contains 'Exit 0. Continues'
+"""
 import unittest
 
 import report
@@ -25,6 +36,7 @@ DISSENT = {"evaluations": 4, "dissent_rate": 1.0, "mean_dissent_score": 0.25}
 
 
 class ReportRenderTests(unittest.TestCase):
+
     def test_renders_posture_and_signals(self):
         text = report.render(SNAPSHOT, FOOTPRINT, DISSENT)
         self.assertIn("# OceanicOS Trust Report", text)
@@ -55,6 +67,26 @@ class ReportRenderTests(unittest.TestCase):
         self.assertIn("none sealed yet", text)
         self.assertIn("none recorded yet", text)
 
+    def test_held_queue_rendering(self):
+        text = report.render(SNAPSHOT, FOOTPRINT, DISSENT)
+        self.assertIn("1 pending · 0 past SLA", text)
+
+    def test_generated_at_and_threshold_in_header(self):
+        text = report.render(SNAPSHOT, FOOTPRINT, DISSENT)
+        self.assertIn("2026-07-23T00:00:00+00:00", text)
+        self.assertIn("threshold 0.74", text)
+
+    def test_ledger_table_rows(self):
+        text = report.render(SNAPSHOT, FOOTPRINT, DISSENT)
+        self.assertIn("attestations | 4", text)
+        self.assertIn("decisions | 60", text)
+
+    def test_intact_not_trustworthy_chain(self):
+        snap = {**SNAPSHOT, "verify": {"intact": True, "length": 3}}
+        text = report.render(snap, FOOTPRINT, DISSENT)
+        self.assertIn("not yet sealed to trustworthy", text)
+
 
 if __name__ == "__main__":
     unittest.main()
+

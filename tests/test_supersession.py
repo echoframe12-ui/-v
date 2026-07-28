@@ -1,3 +1,15 @@
+"""Tests for supersession.py — append-only supersession links.
+
+Covers:
+  - record() and lineage() for simple supersession
+  - Chain of versions (v1 → v2 → v3)
+  - exists() idempotence guard
+  - Unlinked attestation is current
+  - list() returns records in creation order
+  - record() returns dict with all fields
+  - Multiple supersessions of same old_id
+  - lineage() dict has all required keys
+"""
 import os
 import tempfile
 import unittest
@@ -10,6 +22,7 @@ except ImportError:
 
 
 class SupersessionLogTests(unittest.TestCase):
+
     def setUp(self):
         handle = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
         handle.close()
@@ -51,6 +64,36 @@ class SupersessionLogTests(unittest.TestCase):
         self.assertEqual(line["superseded_by"], [])
         self.assertTrue(line["is_current"])
 
+    def test_list_returns_creation_order(self):
+        self.log.record(1, 2, "a", "first")
+        self.log.record(2, 3, "b", "second")
+        records = self.log.list()
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["old_id"], 1)
+        self.assertEqual(records[1]["old_id"], 2)
+        self.assertLessEqual(records[0]["created_at"], records[1]["created_at"])
+
+    def test_record_returns_dict_with_all_fields(self):
+        rec = self.log.record(10, 20, "alice", "upgrade")
+        self.assertIn("id", rec)
+        self.assertEqual(rec["old_id"], 10)
+        self.assertEqual(rec["new_id"], 20)
+        self.assertEqual(rec["actor"], "alice")
+        self.assertEqual(rec["reason"], "upgrade")
+        self.assertIn("created_at", rec)
+
+    def test_multiple_supersessions_of_same_old_id(self):
+        self.log.record(1, 2, "a", "fork-a")
+        self.log.record(1, 3, "b", "fork-b")
+        line = self.log.lineage(1)
+        self.assertEqual(sorted(line["superseded_by"]), [2, 3])
+        self.assertFalse(line["is_current"])
+
+    def test_lineage_dict_keys(self):
+        line = self.log.lineage(1)
+        self.assertEqual(set(line.keys()), {"id", "supersedes", "superseded_by", "is_current"})
+
 
 if __name__ == "__main__":
     unittest.main()
+

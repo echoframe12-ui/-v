@@ -1,3 +1,15 @@
+"""Tests for evolution_history.py — compounding footprint trajectory.
+
+Covers:
+  - record() and list() in oldest-first order
+  - record_if_changed() deduplicates identical totals
+  - growth() summary (points, first, latest, gain)
+  - list(limit=N) returns latest points oldest-first
+  - empty list() returns []
+  - record() returns dict with id and created_at
+  - growth() has 'since' key after first point
+  - empty growth() has no 'since' key
+"""
 import os
 import tempfile
 import unittest
@@ -10,6 +22,7 @@ except ImportError:
 
 
 class EvolutionHistoryTests(unittest.TestCase):
+
     def setUp(self):
         handle = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
         handle.close()
@@ -52,6 +65,26 @@ class EvolutionHistoryTests(unittest.TestCase):
         recent = self.hist.list(limit=2)
         self.assertEqual([p["records_total"] for p in recent], [3, 4])
 
+    def test_empty_list(self):
+        self.assertEqual(self.hist.list(), [])
+
+    def test_record_returns_dict_with_id(self):
+        rec = self.hist.record(42)
+        self.assertIn("id", rec)
+        self.assertIn("created_at", rec)
+        self.assertEqual(rec["records_total"], 42)
+
+    def test_growth_has_since_key(self):
+        self.hist.record(10)
+        g = self.hist.growth()
+        self.assertIn("since", g)
+        self.assertTrue(g["since"])
+
+    def test_empty_growth_has_no_since(self):
+        g = self.hist.growth()
+        self.assertNotIn("since", g)
+
 
 if __name__ == "__main__":
     unittest.main()
+
