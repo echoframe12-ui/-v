@@ -1,3 +1,18 @@
+"""Tests for held_reviews.py — human-in-the-loop review log and SLA tracker.
+
+Covers:
+  - record() and list() held review decisions
+  - latest_for() returns most recent verdict for attestation_id
+  - released_ids() latest-wins behavior
+  - sla_status() pending within SLA
+  - sla_status() pending past SLA (breached)
+  - sla_status() with sla_seconds=0 (never breaches)
+  - sla_status() decided within SLA vs past SLA
+  - record() returns dictionary with all required keys
+  - list() returns empty list for unknown attestation_id
+  - sla_status() defaults now to datetime.now(timezone.utc)
+  - sla_status() with missing review returns pending status
+"""
 import os
 import tempfile
 import unittest
@@ -11,6 +26,7 @@ except ImportError:
 
 
 class HeldReviewLogTests(unittest.TestCase):
+
     def setUp(self):
         handle = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
         handle.close()
@@ -45,8 +61,21 @@ class HeldReviewLogTests(unittest.TestCase):
         self.log.record(3, "s", RELEASE, "clean")
         self.assertEqual(self.log.released_ids(), {1, 3})
 
+    def test_record_returns_dict_with_all_fields(self):
+        entry = self.log.record(10, "reviewer_1", RELEASE, "all clear")
+        self.assertIn("id", entry)
+        self.assertEqual(entry["attestation_id"], 10)
+        self.assertEqual(entry["reviewer"], "reviewer_1")
+        self.assertEqual(entry["verdict"], RELEASE)
+        self.assertEqual(entry["reason"], "all clear")
+        self.assertIn("created_at", entry)
+
+    def test_empty_log_released_ids(self):
+        self.assertEqual(self.log.released_ids(), set())
+
 
 class SlaStatusTests(unittest.TestCase):
+
     def setUp(self):
         self.held_at = datetime(2019, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
         self.held_iso = self.held_at.isoformat()
@@ -81,6 +110,13 @@ class SlaStatusTests(unittest.TestCase):
         status = sla_status(self.held_iso, review, sla_seconds=3600)
         self.assertFalse(status["within_sla"])
 
+    def test_sla_status_default_now(self):
+        recent_iso = datetime.now(timezone.utc).isoformat()
+        status = sla_status(recent_iso, None, sla_seconds=3600)
+        self.assertEqual(status["state"], "pending")
+        self.assertFalse(status["sla_breached"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
