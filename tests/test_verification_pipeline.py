@@ -1,9 +1,21 @@
+"""Tests for verification_pipeline.py — verification pipeline and attestation generation.
+
+Covers:
+  - verify() preserves dissent, provenance, confidence, and result_hash
+  - attest() requires verified result and produces attested Attestation
+  - failed check produces 'held' status and cannot be attested (raises ValueError)
+  - empty context produces 'held' status with confidence=None
+  - VerificationCheck dataclass fields
+  - checks array passed to verify() are all evaluated
+  - multiple passing custom checks produce status 'verified'
+  - attest() on unverified status raises ValueError
+"""
 import unittest
 
 from context_assembly import ContextSource
 from integration_pipeline import IntegrationPipeline
 from perspectives import make_perspective
-from verification_pipeline import VerificationCheck, VerificationPipeline
+from verification_pipeline import VerificationCheck, VerificationPipeline, VerificationResult
 
 
 class StubAdapter:
@@ -25,6 +37,7 @@ class StubAdapter:
 
 
 class VerificationPipelineTests(unittest.TestCase):
+
     def _result(self):
         return IntegrationPipeline(
             [
@@ -72,6 +85,39 @@ class VerificationPipelineTests(unittest.TestCase):
         self.assertEqual(verification.status, "held")
         self.assertIsNone(verification.confidence)
 
+    def test_verification_check_dataclass(self):
+        chk = VerificationCheck("custom_chk", True, "all clear")
+        self.assertEqual(chk.name, "custom_chk")
+        self.assertTrue(chk.passed)
+        self.assertEqual(chk.detail, "all clear")
+
+    def test_multiple_custom_checks_all_pass(self):
+        result = self._result()
+        pipeline = VerificationPipeline(
+            checks=[
+                lambda _: VerificationCheck("chk_1", True),
+                lambda _: VerificationCheck("chk_2", True),
+            ]
+        )
+        verification = pipeline.verify(result)
+        self.assertEqual(verification.status, "verified")
+        # 4 default checks + 2 custom checks = 6 total checks
+        self.assertEqual(len(verification.checks), 6)
+
+    def test_attest_unverified_raises_valueerror(self):
+        unverified = VerificationResult(
+            status="unverified",
+            confidence=0.5,
+            checks=(),
+            dissent=False,
+            provenance=("source",),
+            result_hash="fakehash",
+        )
+        with self.assertRaises(ValueError):
+            VerificationPipeline().attest(unverified)
+
+
 
 if __name__ == "__main__":
     unittest.main()
+

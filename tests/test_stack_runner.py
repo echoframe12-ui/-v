@@ -1,3 +1,12 @@
+"""Tests for stack_runner.py — OceanicStack end-to-end integration runner.
+
+Covers:
+  - Full verified run produces attested Attestation and ACT authorization
+  - Verified run authorizes proposals
+  - Dissent routes authorization to HUMAN_REVIEW with requires_human=True
+  - Empty pipeline run produces held verification and HOLD authorization
+  - Proposal routing under HOLD status yields 'held' status
+"""
 import unittest
 
 from authorization import ActionLevel
@@ -27,6 +36,7 @@ class Adapter:
 
 
 class OceanicStackTests(unittest.TestCase):
+
     def test_stack_runner_produces_attested_and_authorized_run(self):
         stack = OceanicStack(
             IntegrationPipeline(
@@ -75,6 +85,21 @@ class OceanicStackTests(unittest.TestCase):
         self.assertEqual(run.authorization.level, ActionLevel.HUMAN_REVIEW)
         self.assertTrue(run.authorization.requires_human)
 
+    def test_empty_pipeline_produces_held_and_no_attestation(self):
+        stack = OceanicStack(IntegrationPipeline([]))
+        run = stack.run([])
+        self.assertEqual(run.verification.status, "held")
+        self.assertIsNone(run.attestation)
+        self.assertEqual(run.authorization.level, ActionLevel.HOLD)
+
+    def test_proposal_routed_under_hold_is_held(self):
+        stack = OceanicStack(IntegrationPipeline([]))
+        run = stack.run([])
+        proposal = Proposal(id="p1", trigger="t1", hypothesis="h1", evidence_refs=())
+        routed = stack.route_proposal(run, proposal)
+        self.assertEqual(routed.status, "held")
+
 
 if __name__ == "__main__":
     unittest.main()
+

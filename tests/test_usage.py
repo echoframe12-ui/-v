@@ -1,3 +1,17 @@
+"""Tests for usage.py — VaaS actor build usage logging.
+
+Covers:
+  - record() and list() basic operation
+  - list(actor=...) filtering by actor
+  - summary() aggregation by action
+  - persistence across instance re-instantiation
+  - count_in_window() rolling window count and oldest timestamp
+  - count_in_window() with custom 'now' aging out old entries
+  - count_in_window() filtering by action
+  - empty summary() for unused actor
+  - count_in_window() for unknown actor returns 0 count and None oldest
+  - list(limit=N) caps returned records
+"""
 import os
 import tempfile
 import unittest
@@ -10,6 +24,7 @@ except ImportError:
 
 
 class UsageLogTests(unittest.TestCase):
+
     def setUp(self):
         handle = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
         handle.close()
@@ -72,6 +87,18 @@ class UsageLogTests(unittest.TestCase):
         count, _ = self.usage.count_in_window("alice", "build", 3600)
         self.assertEqual(count, 1)
 
+    def test_empty_summary_returns_zero(self):
+        summary = self.usage.summary(actor="ghost")
+        self.assertEqual(summary["total"], 0)
+        self.assertEqual(summary["by_action"], {})
+
+    def test_unknown_actor_window_count_returns_zero(self):
+        count, oldest = self.usage.count_in_window("ghost", "build", 3600)
+        self.assertEqual(count, 0)
+        self.assertIsNone(oldest)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
