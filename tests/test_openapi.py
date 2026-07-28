@@ -1,3 +1,18 @@
+"""Tests for openapi.py — self-describing API spec generated from live routes.
+
+Covers:
+  - Spec skeleton: openapi version, info title/version
+  - Known path /cvi has GET with summary and operationId
+  - Parameterized path types its argument (integer att_id)
+  - HEAD and OPTIONS are excluded from all paths
+  - static route is absent
+  - Core endpoint paths are all documented
+  - All 8 Oceanic VaaS endpoints are in the spec
+  - VaaS endpoints have correct HTTP methods
+  - info description field is present
+  - paths is a non-empty dict
+  - operationId follows method_endpoint format
+"""
 import unittest
 
 import openapi
@@ -43,6 +58,51 @@ class OpenApiGenerateTests(unittest.TestCase):
         for path in ("/metrics", "/cvi/history", "/rules/evaluate", "/attestations/export", "/anchor"):
             self.assertIn(path, self.spec["paths"])
 
+    def test_all_vaas_endpoints_are_in_spec(self):
+        """All 8 Oceanic VaaS endpoints added in the /goal session must be documented."""
+        vaas_paths = [
+            "/oceanic/contracts",
+            "/oceanic/verify",
+            "/oceanic/attest",
+            "/oceanic/lifecycle/run",
+            "/oceanic/lifecycle/events",
+            "/oceanic/lifecycle/chain/verify",
+            "/oceanic/drift/stats",
+            "/oceanic/perspectives",
+        ]
+        for path in vaas_paths:
+            self.assertIn(path, self.spec["paths"], f"VaaS path missing from spec: {path}")
+
+    def test_vaas_post_endpoints_have_post_method(self):
+        for path in ("/oceanic/contracts", "/oceanic/verify", "/oceanic/attest",
+                     "/oceanic/lifecycle/run", "/oceanic/perspectives"):
+            item = self.spec["paths"][path]
+            self.assertIn("post", item, f"Expected POST on {path}")
+
+    def test_vaas_get_endpoints_have_get_method(self):
+        for path in ("/oceanic/lifecycle/events", "/oceanic/lifecycle/chain/verify",
+                     "/oceanic/drift/stats"):
+            item = self.spec["paths"][path]
+            self.assertIn("get", item, f"Expected GET on {path}")
+
+    def test_info_description_field_is_present(self):
+        self.assertIn("description", self.spec["info"])
+
+    def test_paths_is_nonempty_dict(self):
+        self.assertIsInstance(self.spec["paths"], dict)
+        self.assertGreater(len(self.spec["paths"]), 0)
+
+    def test_operationid_follows_method_endpoint_format(self):
+        # operationId should be "{method}_{endpoint_name}"
+        cvi_get_op = self.spec["paths"]["/cvi"]["get"]
+        self.assertTrue(cvi_get_op["operationId"].startswith("get_"))
+
+    def test_responses_key_present_on_every_operation(self):
+        for path, item in self.spec["paths"].items():
+            for method, operation in item.items():
+                self.assertIn("responses", operation, f"Missing responses on {method.upper()} {path}")
+
 
 if __name__ == "__main__":
     unittest.main()
+
