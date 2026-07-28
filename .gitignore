@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 *.db
 *.sqlite3
+*.jsonl
 .venv/
 venv/
 .pytest_cache/
