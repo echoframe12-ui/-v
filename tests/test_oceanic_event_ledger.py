@@ -2,21 +2,26 @@
 
 Covers:
   - Append and hash-chain verification (2-event)
-  - Tampering detection
+  - Tampering detection (content modification)
+  - Corrupt sequence break detection
+  - Corrupt previous_digest mismatch detection
   - Empty ledger chain is intact
   - Single entry chain is intact
   - Event fields are populated correctly
-  - History is returned in sequence order
+  - History is returned in sequence order as tuple
   - Empty ledger history is empty
+  - Continuous chain across multiple appends
 """
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from oceanic_event_ledger import EventLedger
+from oceanic_event_ledger import EventLedger, LedgerEvent
 
 
 class OceanicEventLedgerTests(unittest.TestCase):
+
     def test_append_and_verify_hash_chain(self):
         with tempfile.TemporaryDirectory() as directory:
             ledger = EventLedger(Path(directory) / "events.jsonl")
@@ -66,7 +71,8 @@ class OceanicEventLedgerTests(unittest.TestCase):
             ledger = EventLedger(Path(d) / "events.jsonl")
             for i in range(5):
                 ledger.append(f"event.{i}", f"e_{i}", {"i": i})
-            history = list(ledger.history())
+            history = ledger.history()
+            self.assertIsInstance(history, tuple)
             self.assertEqual(len(history), 5)
             for i, event in enumerate(history):
                 self.assertEqual(event.sequence, i + 1)
@@ -74,9 +80,43 @@ class OceanicEventLedgerTests(unittest.TestCase):
     def test_empty_ledger_history_is_empty(self):
         with tempfile.TemporaryDirectory() as d:
             ledger = EventLedger(Path(d) / "events.jsonl")
-            self.assertEqual(list(ledger.history()), [])
+            self.assertEqual(ledger.history(), ())
+
+    def test_corrupt_sequence_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "events.jsonl"
+            ledger = EventLedger(path)
+            e1 = ledger.append("ev1", "id1", {})
+            e2 = ledger.append("ev2", "id2", {})
+
+            lines = path.read_text(encoding="utf-8").splitlines()
+            data2 = json.loads(lines[1])
+            data2["sequence"] = 99  # break sequence number
+            path.write_text(lines[0] + "\n" + json.dumps(data2) + "\n", encoding="utf-8")
+            self.assertFalse(ledger.verify_chain())
+
+    def test_corrupt_previous_digest_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "events.jsonl"
+            ledger = EventLedger(path)
+            ledger.append("ev1", "id1", {})
+            ledger.append("ev2", "id2", {})
+
+            lines = path.read_text(encoding="utf-8").splitlines()
+            data2 = json.loads(lines[1])
+            data2["previous_digest"] = "sha256:badhash"
+            path.write_text(lines[0] + "\n" + json.dumps(data2) + "\n", encoding="utf-8")
+            self.assertFalse(ledger.verify_chain())
+
+    def test_ledger_event_dataclass(self):
+        e = LedgerEvent(1, "t", "id", "ts", {}, None, "sha256:abc")
+        self.assertEqual(e.sequence, 1)
+        self.assertEqual(e.event_type, "t")
+        self.assertEqual(e.entity_id, "id")
+        self.assertIsNone(e.previous_digest)
 
 
 if __name__ == "__main__":
     unittest.main()
+
 
