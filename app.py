@@ -468,6 +468,19 @@ def consensus_stats():
     return jsonify(consensus_log.stats())
 
 
+@app.route("/consensus/by-adapter", methods=["GET"])
+def consensus_by_adapter():
+    """Each adapter's track record — how often it agreed with the panel's majority.
+
+    The *who* of dissent to complement `/consensus/stats`' *how much*: for every
+    panel member, the evaluations it took part in and how often it stood with or apart
+    from the majority, so a caller can see which perspective tends to be the outlier.
+    Public and aggregate — counts only, no prompt content; derived from the recorded
+    evaluations that retained aligned adapter names (round 0094).
+    """
+    return jsonify(consensus_log.by_adapter())
+
+
 @app.route("/rules/evaluate", methods=["POST"])
 def rules_evaluate():
     """The rules engine's explainable verdict — which rules fired, and why.
