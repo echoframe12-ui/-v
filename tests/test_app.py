@@ -238,6 +238,25 @@ class OceanicOSAppTests(unittest.TestCase):
         # bad limit -> 400
         self.assertEqual(self.client.get("/consensus/history?limit=x").status_code, 400)
 
+    def test_consensus_by_adapter_tracks_each_perspective(self):
+        # a split prompt so the panel members diverge, plus a unanimous one
+        for prompt in ("Plan the build", "Plan the verified build"):
+            self.client.post(
+                "/models/consensus",
+                data=json.dumps({"prompt": prompt}),
+                content_type="application/json",
+            )
+        by = self.client.get("/consensus/by-adapter").get_json()
+        self.assertIsInstance(by, list)
+        self.assertTrue(by)
+        names = {row["adapter"] for row in by}
+        self.assertIn("rules-engine", names)  # the anchor is on the panel
+        for row in by:
+            self.assertGreaterEqual(row["evaluations"], 1)
+            self.assertEqual(row["agreed"] + row["dissented"], row["evaluations"])
+            self.assertGreaterEqual(row["agreement_rate"], 0.0)
+            self.assertLessEqual(row["agreement_rate"], 1.0)
+
     def test_builder_run_records_build_time_dissent(self):
         before = self.client.get("/consensus/stats").get_json()["evaluations"]
         self.client.post(
