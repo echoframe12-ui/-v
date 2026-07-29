@@ -1,3 +1,16 @@
+"""Tests for claude_adapter.py — official Anthropic Claude model adapter.
+
+Covers:
+  - create_claude_adapter returns None without ANTHROPIC_API_KEY
+  - generate() returns structured output dictionary
+  - generate() handles refusal as structured error
+  - describe() includes model and keywords
+  - router correctly routes prompt containing 'claude'
+  - generate() handles RateLimitError gracefully
+  - generate() handles APIStatusError gracefully
+  - generate() handles APIConnectionError gracefully
+  - create_claude_adapter creates instance when API key present
+"""
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -15,6 +28,7 @@ def make_response(text="Hello from Claude", stop_reason="end_turn"):
 
 
 class ClaudeAdapterTests(unittest.TestCase):
+
     def test_factory_returns_none_without_api_key(self):
         with patch.dict("os.environ", {}, clear=False):
             import os
@@ -65,6 +79,50 @@ class ClaudeAdapterTests(unittest.TestCase):
         fallback = router.route("hello")
         self.assertEqual(fallback["adapter"], "local")
 
+    def test_rate_limit_error_handled_gracefully(self):
+        import anthropic
+        client = MagicMock()
+        client.messages.create.side_effect = anthropic.RateLimitError(
+            message="Rate limit exceeded",
+            response=MagicMock(status_code=429),
+            body={}
+        )
+        adapter = ClaudeAdapter(client=client)
+        result = adapter.generate("Heavy query")
+        self.assertEqual(result["error"], "rate_limited")
+
+    def test_api_status_error_handled_gracefully(self):
+        import anthropic
+        client = MagicMock()
+        error_resp = MagicMock(status_code=500)
+        client.messages.create.side_effect = anthropic.APIStatusError(
+            message="Internal server error",
+            response=error_resp,
+            body={}
+        )
+        adapter = ClaudeAdapter(client=client)
+        result = adapter.generate("Error query")
+        self.assertEqual(result["error"], "api_error_500")
+
+    def test_api_connection_error_handled_gracefully(self):
+        import anthropic
+        client = MagicMock()
+        client.messages.create.side_effect = anthropic.APIConnectionError(
+            request=MagicMock()
+        )
+        adapter = ClaudeAdapter(client=client)
+        result = adapter.generate("Offline query")
+        self.assertEqual(result["error"], "connection_error")
+
+    def test_factory_with_api_key(self):
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-fake-key"}, clear=False):
+            client_mock = MagicMock()
+            with patch("anthropic.Anthropic", return_value=client_mock):
+                adapter = create_claude_adapter()
+                self.assertIsNotNone(adapter)
+                self.assertEqual(adapter.provider, "anthropic")
+
 
 if __name__ == "__main__":
     unittest.main()
+
