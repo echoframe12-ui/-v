@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 
 from context_assembly import ContextAssembly
 
@@ -72,14 +72,23 @@ def compare_perspectives(perspectives: list[Perspective]) -> dict[str, Any]:
         }
 
     responses = [perspective.response for perspective in perspectives]
+    repr_responses = [repr(r) for r in responses]
+    majority_repr = max(set(repr_responses), key=repr_responses.count) if repr_responses else None
+    majority_index = repr_responses.index(majority_repr) if majority_repr is not None else None
+    majority = responses[majority_index] if majority_index is not None else None
+
     return {
         "perspectives": [perspective.id for perspective in perspectives],
         "providers": [perspective.provider for perspective in perspectives],
         "models": [perspective.model for perspective in perspectives],
         "responses": responses,
+        # Legacy aliases used by consensus_log.record and other callers
+        "verdicts": responses,
+        "majority": majority,
+        "adapters": [perspective.provider for perspective in perspectives],
         "context_hashes": sorted({perspective.context_hash for perspective in perspectives}),
         "source_refs": sorted({ref for p in perspectives for ref in p.source_refs}),
-        "dissent": len({repr(response) for response in responses}) > 1,
+        "dissent": len(set(repr_responses)) > 1,
         "preferred_interpretation": None,
     }
 
@@ -119,3 +128,32 @@ class PerspectiveRegistry:
     def compare_all(self, context: ContextAssembly) -> dict[str, Any]:
         perspectives = self.evaluate_all(context)
         return compare_perspectives(perspectives)
+
+    def list_adapters(self) -> list[dict]:
+        return [{"provider": a.provider, "model": a.model} for a in self._adapters]
+
+
+def create_live_registry() -> PerspectiveRegistry:
+    """Build a PerspectiveRegistry populated with real API adapters if credentials exist."""
+    import os
+    registry = PerspectiveRegistry()
+
+    if os.getenv("ANTHROPIC_API_KEY"):
+        try:
+            from claude_perspective import ClaudePerspectiveAdapter
+            registry.register(ClaudePerspectiveAdapter())
+        except ImportError:
+            pass
+
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            from openai_perspective import OpenAIPerspectiveAdapter
+            registry.register(OpenAIPerspectiveAdapter())
+        except ImportError:
+            pass
+
+    if not registry._adapters:
+        # Fallback to local mock if no API keys are present
+        registry.register(MockPerspectiveAdapter("local", "mock-fallback"))
+
+    return registry

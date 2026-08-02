@@ -90,3 +90,26 @@ class ContextAssembler:
             for path in paths
         ]
         return self.assemble(sources)
+
+
+def make_context(
+    content: str,
+    included_refs: tuple[str, ...] = (),
+    *,
+    max_chars: int | None = None,
+) -> ContextAssembly:
+    """Build a minimal ContextAssembly from a plain string — no file I/O required.
+
+    Useful inside pipelines where the content is already assembled and only
+    provenance tracking (hash + ref list) is needed.
+    """
+    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return ContextAssembly(
+        sources=(),
+        included_refs=included_refs,
+        omitted_refs=(),
+        content=content,
+        content_hash=content_hash,
+        truncated=False,
+        max_chars=max_chars,
+    )

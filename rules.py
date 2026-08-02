@@ -110,3 +110,31 @@ class RulesAdapter:
 
     def describe(self) -> dict[str, Any]:
         return {"name": self.name, "provider": self.provider, "keywords": []}
+
+class RulesPerspectiveAdapter:
+    """Wrap a RulesEngine as a panel member with the PerspectiveAdapter interface."""
+
+    def __init__(self, engine: RulesEngine | None = None, name: str = "rules-engine") -> None:
+        self.provider = "rules-engine"
+        self.model = name
+        self.engine = engine or RulesEngine()
+
+    def generate(self, context) -> Any:  # Returns Perspective, but we avoid circular import
+        from perspectives import make_perspective
+        evaluation = self.engine.evaluate(context.content)
+        
+        # We store the detailed reasons in the metadata of the perspective
+        metadata = {
+            "rules_fired": evaluation["fired"],
+            "reasons": evaluation["reasons"]
+        }
+        
+        return make_perspective(
+            perspective_id=f"rules-{context.content_hash[:8]}",
+            provider=self.provider,
+            model=self.model,
+            response=evaluation["verdict"],
+            context=context,
+            confidence=1.0,  # Rules are deterministic
+            metadata=metadata
+        )

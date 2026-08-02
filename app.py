@@ -40,13 +40,14 @@ from claude_adapter import create_claude_adapter
 from dashboard import Dashboard
 from decisions import DecisionRegistry
 import models
-from models import ModelAdapter, ModelRouter
+from context_assembly import make_context
+from perspectives import create_live_registry
 from nodes import NodeRegistry
 from planner import Planner
 from plugins import PluginRegistry
 import quotas
 from held_reviews import HeldReviewLog, VERDICTS, sla_status
-from rules import RulesAdapter, RulesEngine
+from rules import RulesPerspectiveAdapter, RulesEngine
 from usage import UsageLog
 from review import ReviewEngine
 from server import OceanicOSService
@@ -98,33 +99,11 @@ def _log_access(response):
 service = OceanicOSService()
 workflow_engine = WorkflowEngine()
 planner = Planner()
-model_router = ModelRouter()
-model_router.register(
-    ModelAdapter("local", "demo", strategy=models.strategy_literal)
-)
-model_router.register(
-    ModelAdapter(
-        "reasoning",
-        "demo",
-        keywords=["plan", "build", "design", "charter"],
-        strategy=models.strategy_optimist,
-    )
-)
-model_router.register(
-    ModelAdapter(
-        "skeptic",
-        "demo",
-        keywords=["plan", "verify", "charter", "attest"],
-        strategy=models.strategy_skeptic,
-    )
-)
-claude_adapter = create_claude_adapter(keywords=["claude"])
-if claude_adapter is not None:
-    model_router.register(claude_adapter)
+perspective_registry = create_live_registry()
 # The deterministic anchor: a rules engine that always weighs in and explains
 # itself — "3 competing LLMs + 1 rules engine" from the manifest, made real.
 rules_engine = RulesEngine()
-model_router.register(RulesAdapter(rules_engine))
+perspective_registry.register(RulesPerspectiveAdapter(rules_engine))
 agent_loop = AgentLoop()
 state_snapshot = StateSnapshot()
 review_engine = ReviewEngine()
@@ -172,7 +151,7 @@ builder = UniversalBuilder(
     service=service,
     planner=planner,
     workflow_engine=workflow_engine,
-    model_router=model_router,
+    perspective_registry=perspective_registry,
     agent_loop=agent_loop,
     state_snapshot=state_snapshot,
     review_engine=review_engine,
@@ -419,7 +398,7 @@ def planner_trace():
 
 @app.route("/models", methods=["GET"])
 def list_models():
-    return jsonify(model_router.list_adapters())
+    return jsonify(perspective_registry.list_adapters())
 
 
 @app.route("/builds", methods=["GET"])
@@ -432,7 +411,11 @@ def list_builds():
 def route_model():
     payload = request.get_json(silent=True) or {}
     prompt = payload.get("prompt", "")
-    return jsonify(model_router.route(prompt))
+    context = make_context(prompt)
+    if perspective_registry._adapters:
+        result = perspective_registry.evaluate_all(context)[0]
+        return jsonify({"provider": result.provider, "model": result.model, "verdict": result.response})
+    return jsonify({})
 
 
 @app.route("/models/consensus", methods=["POST"])
@@ -440,8 +423,8 @@ def route_model():
 def model_consensus():
     payload = request.get_json(silent=True) or {}
     prompt = payload.get("prompt", "")
-    # panel of 4: the three model heuristics plus the rules engine anchor
-    result = model_router.route_all(prompt, panel=4)
+    context = make_context(prompt)
+    result = perspective_registry.compare_all(context)
     # dissent is data — record the disagreement (prompt hashed, never stored raw)
     recorded = consensus_log.record(prompt, result)
     result["dissent_score"] = recorded["dissent_score"]
@@ -1214,7 +1197,7 @@ def prometheus_metrics():
         {"name": "oceanicos_chain_length", "help": "Number of links in the attestation chain", "value": verify["length"]},
         {"name": "oceanicos_chain_trustworthy", "help": "Chain intact and signed head verified (1 yes, 0 no)", "value": bool(verify.get("trustworthy"))},
         {"name": "oceanicos_checkpoint_auto", "help": "Automatic checkpoint sealing enabled (1 yes, 0 no)", "value": policy["auto"]},
-        {"name": "oceanicos_model_adapters", "help": "Registered dissent-panel adapters", "value": len(model_router.list_adapters())},
+        {"name": "oceanicos_model_adapters", "help": "Registered dissent-panel adapters", "value": len(perspective_registry.list_adapters())},
         {"name": "oceanicos_dissent_rate", "help": "Fraction of recorded panel evaluations that surfaced dissent (0-1)", "value": consensus_log.stats()["dissent_rate"]},
         {"name": "oceanicos_last_audit_intact", "help": "Latest drift audit found the chain intact (1 yes/none, 0 broken)", "value": (drift_audit_log.latest() or {}).get("intact", True)},
     ]
@@ -1647,7 +1630,7 @@ def _effective_config() -> dict:
         },
         "held_sla_seconds": HELD_SLA_SECONDS,
         "admins": len(auth_registry.admin_users),
-        "model_adapters": [a["name"] for a in model_router.list_adapters()],
+        "model_adapters": [a["provider"] for a in perspective_registry.list_adapters()],
         "db_path": str(service.db_path),
         "workspace": os.getenv("OCEANICOS_WORKSPACE", "workspace"),
         "version": "1.0",

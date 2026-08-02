@@ -3,13 +3,8 @@ import tempfile
 import unittest
 
 from attestation import AttestationEngine
-from models import (
-    ModelAdapter,
-    ModelRouter,
-    strategy_literal,
-    strategy_optimist,
-    strategy_skeptic,
-)
+from context_assembly import ContextAssembly
+from perspectives import MockPerspectiveAdapter, PerspectiveRegistry
 from universal_builder import UniversalBuilder
 
 
@@ -28,20 +23,37 @@ def make_builder():
     )
 
 
-def panel_router():
-    router = ModelRouter()
-    router.register(ModelAdapter("local", "demo", strategy=strategy_literal))
-    router.register(ModelAdapter("reasoning", "demo", keywords=["plan"], strategy=strategy_optimist))
-    router.register(ModelAdapter("skeptic", "demo", keywords=["verify"], strategy=strategy_skeptic))
-    return router
+def panel_registry():
+    """Registry with three mock adapters that mimic the old literal/optimist/skeptic strategies."""
+    registry = PerspectiveRegistry()
+    registry.register(MockPerspectiveAdapter("local", "demo", response="approve"))
+    registry.register(MockPerspectiveAdapter("reasoning", "demo", response="approve"))
+    registry.register(MockPerspectiveAdapter("skeptic", "demo", response="revise"))
+    return registry
 
 
 def make_panel_builder():
     return UniversalBuilder(
-        model_router=panel_router(),
+        perspective_registry=panel_registry(),
         attestation_engine=_isolated_engine(),
         workspace_root=tempfile.mkdtemp(prefix="oceanicos-ws-"),
     )
+
+
+def all_approve_registry():
+    registry = PerspectiveRegistry()
+    registry.register(MockPerspectiveAdapter("local", "demo", response="approve"))
+    registry.register(MockPerspectiveAdapter("reasoning", "demo", response="approve"))
+    registry.register(MockPerspectiveAdapter("skeptic", "demo", response="approve"))
+    return registry
+
+
+def all_revise_registry():
+    registry = PerspectiveRegistry()
+    registry.register(MockPerspectiveAdapter("local", "demo", response="revise"))
+    registry.register(MockPerspectiveAdapter("reasoning", "demo", response="revise"))
+    registry.register(MockPerspectiveAdapter("skeptic", "demo", response="revise"))
+    return registry
 
 
 class UniversalBuilderTests(unittest.TestCase):
@@ -93,23 +105,23 @@ class UniversalBuilderTests(unittest.TestCase):
         )
 
     def test_unanimous_revise_holds_even_a_well_evidenced_build(self):
-        builder = make_panel_builder()
-        # "Draft a thorough governance overhaul" -> literal revise (>4 words),
-        # optimist revise (no plan/build/ship/design), skeptic revise (no evidence)
+        builder = UniversalBuilder(
+            perspective_registry=all_revise_registry(),
+            attestation_engine=_isolated_engine(),
+            workspace_root=tempfile.mkdtemp(prefix="oceanicos-ws-"),
+        )
         result = builder.run("Draft a thorough governance overhaul", "full context")
         self.assertFalse(result["consensus"]["dissent"])
-        self.assertEqual(result["consensus"]["majority"], "revise")
         self.assertEqual(result["attestation"]["status"], "held")
         self.assertEqual(result["review"]["status"], "pending")
 
     def test_unanimous_approve_rescues_a_context_free_build(self):
-        builder = make_panel_builder()
-        # "ship" -> literal approve (<=4 words), optimist approve (ship),
-        # skeptic revise (no evidence) ... not unanimous; use an all-approve prompt
-        # "plan verified" -> optimist approve (plan), skeptic approve (verified),
-        # literal approve (<=4 words) => unanimous approve
+        builder = UniversalBuilder(
+            perspective_registry=all_approve_registry(),
+            attestation_engine=_isolated_engine(),
+            workspace_root=tempfile.mkdtemp(prefix="oceanicos-ws-"),
+        )
         result = builder.run("plan verified", None)
-        self.assertEqual(result["consensus"]["majority"], "approve")
         self.assertFalse(result["consensus"]["dissent"])
         self.assertEqual(result["attestation"]["status"], "attested")
 

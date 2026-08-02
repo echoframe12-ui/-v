@@ -9,7 +9,8 @@ from artifacts import ArtifactRegistry
 from attestation import AttestationEngine, consensus_delta, score_confidence
 from dashboard import Dashboard
 from decisions import DecisionRegistry
-from models import ModelAdapter, ModelRouter
+from context_assembly import ContextAssembly, make_context
+from perspectives import PerspectiveRegistry, MockPerspectiveAdapter
 from planner import Planner
 from plugins import PluginRegistry
 from review import ReviewEngine
@@ -34,7 +35,7 @@ class UniversalBuilder:
         service: OceanicOSService | None = None,
         planner: Planner | None = None,
         workflow_engine: WorkflowEngine | None = None,
-        model_router: ModelRouter | None = None,
+        perspective_registry: PerspectiveRegistry | None = None,
         agent_loop: AgentLoop | None = None,
         state_snapshot: StateSnapshot | None = None,
         review_engine: ReviewEngine | None = None,
@@ -48,10 +49,11 @@ class UniversalBuilder:
         self.service = service or OceanicOSService()
         self.planner = planner or Planner()
         self.workflow_engine = workflow_engine or WorkflowEngine()
-        if model_router is None:
-            model_router = ModelRouter()
-            model_router.register(ModelAdapter("local", "demo"))
-        self.model_router = model_router
+        if perspective_registry is None:
+            perspective_registry = PerspectiveRegistry()
+            perspective_registry.register(MockPerspectiveAdapter("local", "demo", response="approve"))
+            perspective_registry.register(MockPerspectiveAdapter("skeptic", "demo", response="revise"))
+        self.perspective_registry = perspective_registry
         self.agent_loop = agent_loop or AgentLoop()
         self.state_snapshot = state_snapshot or StateSnapshot()
         self.review_engine = review_engine or ReviewEngine()
@@ -88,10 +90,10 @@ class UniversalBuilder:
         self.state_snapshot.record("workflow_executed", workflow_name)
         stages.append("workflow")
 
-        model_result = self.model_router.route(task)
-        # panel of 4 when the router is fully staffed: the model heuristics plus
-        # the rules-engine anchor. Falls back gracefully on smaller routers.
-        consensus = self.model_router.route_all(task, panel=4)
+        context_assembly = make_context(task, included_refs=("plan",))
+        model_result = self.perspective_registry.evaluate_all(context_assembly)[0] if self.perspective_registry._adapters else None
+        
+        consensus = self.perspective_registry.compare_all(context_assembly)
         stages.append("route")
 
         agent_result = self.agent_loop.run(task, context)
@@ -123,7 +125,7 @@ class UniversalBuilder:
             f"# Build run {run_id}: {task}\n\n"
             f"Context: {context or 'general'}\n\n"
             f"## Plan\n\n{plan_lines}\n\n"
-            f"## Model\n\nRouted to adapter: {model_result['adapter']}\n"
+            f"## Model\n\nRouted to adapter: {model_result.provider if model_result else 'None'}\n"
         )
         build_file = self.service.invoke_tool(
             "file_write",
@@ -131,9 +133,11 @@ class UniversalBuilder:
         )
         stages.append("workspace")
 
-        delta = consensus_delta(consensus["verdicts"])
+        delta = consensus_delta(consensus["responses"])
         confidence = score_confidence(stages, context is not None, consensus=delta)
         verdict_note = "dissent" if consensus["dissent"] else "agreement"
+        majority = consensus.get("majority", "none") or "none"
+
         attestation = self.attestation_engine.attest(
             f"build-{run_id}",
             build_content,
@@ -141,7 +145,7 @@ class UniversalBuilder:
             + [
                 f"workspace:{build_file['path']}",
                 f"actor:{actor}",
-                f"consensus:{consensus['majority']}({verdict_note})",
+                f"consensus:{majority}({verdict_note})",
             ],
             confidence=confidence,
             actor=actor,
@@ -174,7 +178,7 @@ class UniversalBuilder:
             "stages": stages,
             "plan": plan,
             "workflow": workflow,
-            "model": model_result,
+            "model": {"provider": model_result.provider, "model": model_result.model} if model_result else None,
             "consensus": consensus,
             "agent": {"task": agent_result["task"]},
             "review": review,
@@ -224,7 +228,7 @@ class UniversalBuilder:
             next_steps.append(f"Resolve {len(pending_reviews)} pending review(s)")
         if draft_artifacts:
             next_steps.append(f"Promote {len(draft_artifacts)} draft artifact(s)")
-        providers = {adapter["provider"] for adapter in self.model_router.list_adapters()}
+        providers = {adapter["provider"] for adapter in self.perspective_registry.list_adapters()}
         if "anthropic" not in providers:
             next_steps.append(
                 "Connect a real model provider (set ANTHROPIC_API_KEY to enable the Claude adapter)"

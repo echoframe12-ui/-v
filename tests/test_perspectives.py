@@ -207,3 +207,18 @@ class PerspectiveRegistryTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+class CreateLiveRegistryTests(unittest.TestCase):
+    def test_create_live_registry_fallback(self):
+        import os
+        from perspectives import create_live_registry, MockPerspectiveAdapter
+        
+        # Ensure no keys are present
+        if "ANTHROPIC_API_KEY" in os.environ:
+            del os.environ["ANTHROPIC_API_KEY"]
+        if "OPENAI_API_KEY" in os.environ:
+            del os.environ["OPENAI_API_KEY"]
+            
+        registry = create_live_registry()
+        self.assertEqual(len(registry._adapters), 1)
+        self.assertIsInstance(registry._adapters[0], MockPerspectiveAdapter)
