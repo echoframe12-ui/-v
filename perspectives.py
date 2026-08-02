@@ -82,3 +82,40 @@ def compare_perspectives(perspectives: list[Perspective]) -> dict[str, Any]:
         "dissent": len({repr(response) for response in responses}) > 1,
         "preferred_interpretation": None,
     }
+
+
+class MockPerspectiveAdapter:
+    """Mock perspective adapter for testing or local rules-based evaluations."""
+
+    def __init__(self, provider: str, model: str, response: Any = "approve", confidence: float | None = 0.95):
+        self.provider = provider
+        self.model = model
+        self.response = response
+        self.confidence = confidence
+
+    def generate(self, context: ContextAssembly) -> Perspective:
+        return make_perspective(
+            perspective_id=f"{self.provider}-{self.model}-{context.content_hash[:8]}",
+            provider=self.provider,
+            model=self.model,
+            response=self.response,
+            context=context,
+            confidence=self.confidence,
+        )
+
+
+class PerspectiveRegistry:
+    """Registry managing multiple model adapters for multi-perspective evaluations."""
+
+    def __init__(self, adapters: Sequence[PerspectiveAdapter] = ()) -> None:
+        self._adapters: list[PerspectiveAdapter] = list(adapters)
+
+    def register(self, adapter: PerspectiveAdapter) -> None:
+        self._adapters.append(adapter)
+
+    def evaluate_all(self, context: ContextAssembly) -> list[Perspective]:
+        return [adapter.generate(context) for adapter in self._adapters]
+
+    def compare_all(self, context: ContextAssembly) -> dict[str, Any]:
+        perspectives = self.evaluate_all(context)
+        return compare_perspectives(perspectives)

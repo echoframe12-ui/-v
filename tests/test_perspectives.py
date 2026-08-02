@@ -176,6 +176,34 @@ class ComparePerspectivesTests(unittest.TestCase):
         self.assertIsNone(result["preferred_interpretation"])
 
 
+class PerspectiveRegistryTests(unittest.TestCase):
+
+    def setUp(self):
+        from perspectives import MockPerspectiveAdapter, PerspectiveRegistry
+        self.context = _ctx(("ref-x", "System spec"))
+        self.a1 = MockPerspectiveAdapter("provider-a", "model-1", "approve", 0.9)
+        self.a2 = MockPerspectiveAdapter("provider-b", "model-2", "reject", 0.8)
+        self.registry = PerspectiveRegistry([self.a1, self.a2])
+
+    def test_evaluate_all_generates_perspectives(self):
+        results = self.registry.evaluate_all(self.context)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].provider, "provider-a")
+        self.assertEqual(results[1].provider, "provider-b")
+
+    def test_compare_all_surfaces_dissent(self):
+        comparison = self.registry.compare_all(self.context)
+        self.assertTrue(comparison["dissent"])
+        self.assertEqual(comparison["providers"], ["provider-a", "provider-b"])
+
+    def test_register_adds_adapter(self):
+        from perspectives import MockPerspectiveAdapter
+        a3 = MockPerspectiveAdapter("provider-c", "model-3", "approve")
+        self.registry.register(a3)
+        results = self.registry.evaluate_all(self.context)
+        self.assertEqual(len(results), 3)
+
+
 if __name__ == "__main__":
     unittest.main()
 
