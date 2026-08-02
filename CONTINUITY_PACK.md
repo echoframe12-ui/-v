@@ -102,6 +102,18 @@ The event ledger is the durable record of all transitions. REST API is wired.
 
 ## Current Handoff State
 
+### Completed (2026-08-01, evening session)
+
+- Replaced `ModelRouter` with `PerspectiveRegistry` across the full stack: `universal_builder.py`, `app.py`, all `/models` endpoints.
+- Added `RulesPerspectiveAdapter` in `rules.py` wrapping the deterministic `RulesEngine` as a formal `PerspectiveAdapter`.
+- Added `ClaudePerspectiveAdapter` (`claude_perspective.py`) and `OpenAIPerspectiveAdapter` (`openai_perspective.py`) with full test suites.
+- Added `make_context` factory in `context_assembly.py` for safe `ContextAssembly` construction.
+- Fixed `compare_perspectives` to handle unhashable dict responses safely.
+- Added backward-compatible aliases (`verdicts`, `majority`, `adapters`) so `consensus_log` and downstream reporting still work.
+- Updated test suites: `test_app.py`, `test_universal_builder.py`, `test_perspectives.py`, `test_rules.py`, `test_oceanic_vaas.py`.
+- **818 tests passing, 26 subtests passing** (clean DB required).
+- Commit: `9647f93` — pushed to `origin/main`.
+
 ### Completed (2026-08-01)
 
 - Merged remote patch branch `origin/echoframe12-ui-patch-1` (added Makefile CI workflow `.github/workflows/makefile.yml`).
@@ -123,6 +135,8 @@ The event ledger is the durable record of all transitions. REST API is wired.
 ### Current State
 
 - All lifecycle pipeline stages wired end-to-end.
+- `PerspectiveRegistry` is the sole orchestrator — `ModelRouter` in `models.py` is now dead code.
+- Multi-provider adapters (local, Claude, OpenAI, rules-engine) all registered and tested.
 - Drift audit records lifecycle deviations as non-intact events.
 - Cross-model dissent surfaces through the perspectives comparison layer.
 - `oceanic_lifecycle.jsonl`: separate JSONL ledger for Oceanic events.
@@ -130,12 +144,12 @@ The event ledger is the durable record of all transitions. REST API is wired.
 ### Known Gaps
 
 - `oceanicos.db` is shared across all test modules — absolute-count tests (e.g. `stats["total"] == 2`) fail if run on a DB with prior state. Fix: run `Remove-Item oceanicos.db` before test suite.
+- `models.py` contains the legacy `ModelRouter` class — dead code now that `PerspectiveRegistry` has fully replaced it. Candidate for removal or deprecation notice.
 - OpenAPI spec auto-generated from live routes (`/openapi.json`) — covers all VaaS endpoints automatically.
-- Multi-provider PerspectiveAdapter (real LLM/model integration) remains as a future evolution.
 
 ### Next Action
 
-> **Git commit** the completed `/goal` session: VaaS REST API + perspectives engine + drift stats + 511 passing tests.
+> **Remove dead `ModelRouter` code** from `models.py` and update any remaining references, then update ROADMAP.md to reflect Phase 5 completion.
 
 ## Verification Discipline
 
