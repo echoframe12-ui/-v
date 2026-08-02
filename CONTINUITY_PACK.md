@@ -106,8 +106,11 @@ The event ledger is the durable record of all transitions. REST API is wired.
 
 - Merged remote patch branch `origin/echoframe12-ui-patch-1` (added Makefile CI workflow `.github/workflows/makefile.yml`).
 - Merged remote feature branch `origin/feature/omega-oceanic-master-integration-v1` (added `adapters/python_adapter.py`, `adapters/rust_adapter.py`, `adapters/typescript_adapter.py`, `continuous_becoming.py`, `ecosystem_cycle.py`, `observer.py`, and test suites).
+- Resolved missing dataclass exports in `oceanic_ir.py` and test suite helper name collision in `test_observer.py`.
+- Established virtual environment (`.venv`) and verified full test suite: **810 / 810 tests passing**.
 - Configured local git repository author identity (`echoframe12-ui <echoframe12@gmail.com>`).
-- Rebased local branch onto `origin/main` cleanly (main is 41 commits ahead of origin/main).
+- Rebased local branch onto `origin/main` cleanly (main is ahead of origin/main).
+- Started live server at `http://127.0.0.1:5000` exposing full VaaS REST endpoints and web UI console.
 
 ### Completed (2026-07-28)
 
