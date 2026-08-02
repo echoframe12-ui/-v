@@ -129,7 +129,10 @@ class ConsensusLogTests(unittest.TestCase):
             self.assertEqual(log.list()[0]["adapter_names"], ["optimist"])
         finally:
             if os.path.exists(path):
-                os.remove(path)
+                try:
+                    os.remove(path)
+                except PermissionError:
+                    pass
 
 
 if __name__ == "__main__":
