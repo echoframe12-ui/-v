@@ -38,6 +38,51 @@ Plugins should be modular and capability-based.
 - schema
 - invoke(payload)
 
+#### Concrete Plugin Contract
+Plugins should implement a stable contract so the runtime can discover, validate, and invoke them reliably.
+
+- `name` (string): unique plugin identifier (e.g. `github`, `memory-sql`).
+- `version` (string, semver): plugin implementation version.
+- `description` (string): human-friendly description of the plugin.
+- `capabilities` (array[string]): high-level capability tags such as `memory`, `tool`, `workflow`, `notification`, `model-adapter`.
+- `schema` (object|null): optional JSON Schema describing accepted `invoke` payloads and their semantics.
+- `invoke(payload)` (callable): the plugin entrypoint. Accepts a validated payload and returns a structured response. Implementations MUST raise clear exceptions for invalid inputs.
+
+Example plugin contract (JSON-like):
+
+```json
+{
+  "name": "echo",
+  "version": "0.0.1",
+  "description": "Echo tool for demos",
+  "capabilities": ["tool"],
+  "schema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
+}
+```
+
+Example invocation flow:
+
+1. Runtime lists plugins via `GET /tools` and reads `schema` for validation.
+2. Caller prepares a payload and validates it against the plugin `schema` (if present).
+3. Caller POSTs to `POST /tools/{plugin}/invoke` with the payload.
+4. The plugin executes `invoke(payload)` and returns a JSON response containing `result`, optional `explanation`, and `metadata`.
+
+Example response shape:
+
+```json
+{
+  "result": {"echo": "hello"},
+  "explanation": "Echoed input",
+  "metadata": {"duration_ms": 2}
+}
+```
+
+Design notes:
+
+- Backwards compatibility: simple plugins may register with only `name` and `capabilities` while richer plugins should provide `schema` and a class-based implementation exposed via a registry.
+- Security: plugin authors should document permissions and any external network access; the runtime enforces safe defaults and explicit allow-lists.
+- Observability: every plugin call should be logged with request id, plugin name, inputs (redacted), and duration.
+
 ### Supported Plugin Types
 - Memory plugins
 - Tool plugins
