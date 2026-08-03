@@ -105,11 +105,67 @@ class OceanicOSService:
         self._plugins.append({"name": name, "config": config})
         return {"registered": True, "name": name}
 
+    def unregister_plugin(self, name: str) -> dict[str, Any]:
+        """Remove plugin from DB, internal registry, and any exposed tools."""
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute("DELETE FROM plugins WHERE name = ?", (name,))
+        # remove from in-memory lists
+        self._plugins = [p for p in self._plugins if p.get("name") != name]
+        # remove tool mapping if present
+        if name in self._tools:
+            del self._tools[name]
+        # remove from plugin registry if present
+        found = self._plugin_registry.find(name)
+        if found:
+            # unregister by filtering
+            self._plugin_registry._plugins = [p for p in self._plugin_registry._plugins if p.get("name") != name]
+        return {"unregistered": True, "name": name}
+
+    def update_plugin(self, name: str, config: dict[str, Any]) -> dict[str, Any]:
+        """Update plugin config in DB and re-instantiate builtin if requested."""
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO plugins (name, config) VALUES (?, ?)",
+                (name, json.dumps(config)),
+            )
+        # update in-memory copy
+        for p in self._plugins:
+            if p.get("name") == name:
+                p["config"] = config
+                break
+        else:
+            self._plugins.append({"name": name, "config": config})
+
+        # if replacing a builtin, (re)instantiate and attach
+        if config.get("builtin"):
+            builtin = config.get("builtin_name") or name
+            if builtin in self._builtin_plugins:
+                mod_path, cls_name = self._builtin_plugins[builtin]
+                try:
+                    mod = import_module(mod_path)
+                    cls = getattr(mod, cls_name)
+                    instance = cls(name=name)
+                    # replace in registry and tools
+                    self._plugin_registry.register_plugin(instance)
+                    self._tools[name] = lambda payload, inst=instance: inst.invoke(payload)
+                except Exception as exc:  # pragma: no cover - defensive
+                    return {"updated": False, "error": str(exc)}
+
+        return {"updated": True, "name": name}
+
     def list_plugins(self) -> list[dict[str, Any]]:
         with sqlite3.connect(self._db_path) as conn:
             rows = conn.execute("SELECT name, config FROM plugins").fetchall()
         self._plugins = [{"name": row[0], "config": json.loads(row[1])} for row in rows]
         return self._plugins
+
+    def get_plugin_config(self, name: str) -> dict[str, Any] | None:
+        """Return stored plugin config from the DB by name, or None if missing."""
+        with sqlite3.connect(self._db_path) as conn:
+            row = conn.execute("SELECT config FROM plugins WHERE name = ?", (name,)).fetchone()
+        if not row:
+            return None
+        return json.loads(row[0])
 
     def _echo_tool(self, payload: dict[str, Any]) -> dict[str, Any]:
         return {"output": payload.get("message", "")}

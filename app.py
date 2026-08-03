@@ -111,6 +111,8 @@ def invoke_tool(name: str):
         return jsonify(service.invoke_tool(name, payload))
     except ValueError as exc:
         return jsonify({"error": "invalid input", "message": str(exc)}), 400
+    except KeyError as exc:
+        return jsonify({"error": "not found", "message": str(exc)}), 404
     except Exception as exc:  # pragma: no cover - unexpected plugin error
         return jsonify({"error": "internal error", "message": str(exc)}), 500
 
@@ -303,6 +305,32 @@ def register_plugin():
     if not ok:
         return resp
     return jsonify(service.register_plugin(name, config))
+
+
+@app.route("/plugins/<name>", methods=["PUT"])
+def update_plugin(name: str):
+    payload = request.get_json(silent=True) or {}
+    ok, resp = _require_api_key(request)
+    if not ok:
+        return resp
+    # allow updating capabilities, schema, builtin flags
+    capabilities = payload.get("capabilities", [])
+    builtin = payload.get("builtin", False)
+    builtin_name = payload.get("builtin_name")
+    config = {"capabilities": capabilities, "builtin": bool(builtin)}
+    if builtin_name:
+        config["builtin_name"] = builtin_name
+    if "schema" in payload:
+        config["schema"] = payload.get("schema")
+    return jsonify(service.update_plugin(name, config))
+
+
+@app.route("/plugins/<name>", methods=["DELETE"])
+def delete_plugin(name: str):
+    ok, resp = _require_api_key(request)
+    if not ok:
+        return resp
+    return jsonify(service.unregister_plugin(name))
 
 
 @app.route("/plugins", methods=["GET"])
