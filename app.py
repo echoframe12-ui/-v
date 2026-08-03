@@ -28,6 +28,18 @@ artifact_registry = ArtifactRegistry()
 dashboard = Dashboard()
 
 
+def _require_api_key(req: request) -> tuple[bool, tuple[dict, int] | None]:
+    """Return (True, None) when API key is valid; otherwise (False, (resp, status))."""
+    expected = os.getenv("API_KEY", "")
+    # If no API_KEY configured, allow open access (useful for local/dev)
+    if not expected:
+        return True, None
+    key = req.headers.get("X-API-Key", "")
+    if key == expected:
+        return True, None
+    return False, (jsonify({"error": "unauthorized"}), 401)
+
+
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
@@ -79,6 +91,9 @@ def list_tools():
 @app.route("/tools/<name>", methods=["POST"])
 def invoke_tool(name: str):
     payload = request.get_json(silent=True) or {}
+    ok, resp = _require_api_key(request)
+    if not ok:
+        return resp
     # If plugin provides a schema in its stored config, validate the payload first.
     config = service.get_plugin_config(name)
     schema = None
@@ -284,6 +299,9 @@ def register_plugin():
     config = {"capabilities": capabilities, "builtin": bool(builtin)}
     if builtin_name:
         config["builtin_name"] = builtin_name
+    ok, resp = _require_api_key(request)
+    if not ok:
+        return resp
     return jsonify(service.register_plugin(name, config))
 
 
