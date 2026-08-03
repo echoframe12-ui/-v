@@ -193,6 +193,36 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertEqual(response.get_json()["model"]["adapter"], "local")
         self.assertEqual(response.get_json()["artifact"]["status"], "ready")
 
+    def test_builder_run_artifact_updates_latest(self):
+        starting_artifacts = self.client.get("/artifacts")
+        self.assertEqual(starting_artifacts.status_code, 200)
+        initial_count = len(starting_artifacts.get_json())
+
+        response1 = self.client.post(
+            "/builder/run",
+            data=json.dumps({"task": "Draft a charter update", "context": "Governance"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response1.status_code, 200)
+        artifact1 = response1.get_json()["artifact"]
+        self.assertEqual(artifact1["status"], "ready")
+
+        response2 = self.client.post(
+            "/builder/run",
+            data=json.dumps({"task": "Draft a charter update", "context": "Governance"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response2.status_code, 200)
+        artifact2 = response2.get_json()["artifact"]
+        self.assertEqual(artifact2["status"], "ready")
+
+        artifacts = self.client.get("/artifacts")
+        self.assertEqual(artifacts.status_code, 200)
+        artifacts_json = artifacts.get_json()
+        self.assertEqual(len(artifacts_json), initial_count + 2)
+        self.assertEqual(artifacts_json[-1]["status"], "ready")
+        self.assertEqual(artifacts_json[-1]["name"], artifact2["name"])
+
     def test_builder_trace_endpoint(self):
         self.client.post(
             "/builder/run",

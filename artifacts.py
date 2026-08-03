@@ -13,7 +13,8 @@ class ArtifactRegistry:
         return artifact
 
     def update_status(self, name: str, status: str) -> dict[str, Any] | None:
-        for artifact in self._artifacts:
+        # Update the most recently created artifact with the matching name.
+        for artifact in reversed(self._artifacts):
             if artifact["name"] == name:
                 artifact["status"] = status
                 return artifact

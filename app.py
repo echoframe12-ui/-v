@@ -270,7 +270,7 @@ def run_builder():
         "plan",
         "draft",
     )
-    artifact_registry.update_status(artifact_result["name"], "ready")
+    artifact_result = artifact_registry.update_status(artifact_result["name"], "ready") or artifact_result
     decision_registry.update(f"Run {task}", f"Accepted a builder run for {task} and marked artifact ready")
 
     return jsonify(
@@ -281,7 +281,7 @@ def run_builder():
             "state": state_snapshot.snapshot(),
             "review": review_result,
             "decision": decision_result,
-            "artifact": artifact_registry.list()[-1],
+            "artifact": artifact_result,
             "dashboard": dashboard.summary(),
         }
     )
