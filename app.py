@@ -394,7 +394,32 @@ def list_plugin_audit():
         import math
 
         total_pages = math.ceil(total / per_page_i) if per_page_i > 0 else 1
-        return jsonify({"items": entries, "page": page_i, "per_page": per_page_i, "total": total, "total_pages": total_pages})
+        payload = {"items": entries, "page": page_i, "per_page": per_page_i, "total": total, "total_pages": total_pages}
+        # Build Link header for next/prev pages when applicable
+        links = []
+        base = request.base_url
+        def _build_q(p):
+            q = []
+            q.append(f"page={p}")
+            q.append(f"per_page={per_page_i}")
+            if name:
+                q.append(f"name={name}")
+            if action:
+                q.append(f"action={action}")
+            if start_ts:
+                q.append(f"start_ts={start_ts}")
+            if end_ts:
+                q.append(f"end_ts={end_ts}")
+            return base + "?" + "&".join(q)
+
+        if page_i < total_pages:
+            links.append(f"<{_build_q(page_i+1)}>; rel=\"next\"")
+        if page_i > 1:
+            links.append(f"<{_build_q(page_i-1)}>; rel=\"prev\"")
+        resp = jsonify(payload)
+        if links:
+            resp.headers["Link"] = ", ".join(links)
+        return resp
     return jsonify(entries)
 
 
