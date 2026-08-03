@@ -354,7 +354,35 @@ def list_plugin_audit():
         l = int(limit) if limit else 100
     except Exception:
         l = 100
-    return jsonify(service.list_plugin_audit(l))
+    name = request.args.get("name")
+    action = request.args.get("action")
+    return jsonify(service.list_plugin_audit(l, name=name, action=action))
+
+
+@app.route("/plugins/audit.csv", methods=["GET"])
+def download_plugin_audit_csv():
+    ok, resp = _require_api_key(request)
+    if not ok:
+        return resp
+    limit = request.args.get("limit")
+    try:
+        l = int(limit) if limit else 100
+    except Exception:
+        l = 100
+    name = request.args.get("name")
+    action = request.args.get("action")
+    entries = service.list_plugin_audit(l, name=name, action=action)
+    # generate CSV
+    from io import StringIO
+    import csv
+
+    buf = StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "name", "action", "actor", "details", "ts"])
+    for e in entries:
+        writer.writerow([e.get("id"), e.get("name"), e.get("action"), e.get("actor"), json.dumps(e.get("details")) if e.get("details") is not None else "", e.get("ts")])
+    csv_text = buf.getvalue()
+    return app.response_class(csv_text, mimetype="text/csv")
 
 
 def main() -> None:

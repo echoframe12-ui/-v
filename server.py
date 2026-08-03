@@ -65,9 +65,26 @@ class OceanicOSService:
                 (name, action, actor, details_text),
             )
 
-    def list_plugin_audit(self, limit: int = 100) -> list[dict[str, Any]]:
+    def list_plugin_audit(self, limit: int = 100, name: str | None = None, action: str | None = None) -> list[dict[str, Any]]:
+        """List plugin audit entries with optional filtering by name and action.
+
+        Returns entries ordered by id desc up to `limit`.
+        """
+        sql = "SELECT id, name, action, actor, details, ts FROM plugin_audit"
+        params: list[Any] = []
+        clauses: list[str] = []
+        if name:
+            clauses.append("name = ?")
+            params.append(name)
+        if action:
+            clauses.append("action = ?")
+            params.append(action)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
         with sqlite3.connect(self._db_path) as conn:
-            rows = conn.execute("SELECT id, name, action, actor, details, ts FROM plugin_audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            rows = conn.execute(sql, tuple(params)).fetchall()
         return [
             {"id": row[0], "name": row[1], "action": row[2], "actor": row[3], "details": json.loads(row[4]) if row[4] else None, "ts": row[5]}
             for row in rows
