@@ -3,6 +3,7 @@ import os
 from flask import Flask, jsonify, render_template, request
 from jsonschema import validate, ValidationError
 import json
+from datetime import datetime
 
 from agent import AgentLoop
 from artifacts import ArtifactRegistry
@@ -359,6 +360,23 @@ def list_plugin_audit():
     action = request.args.get("action")
     start_ts = request.args.get("start_ts")
     end_ts = request.args.get("end_ts")
+    # validate ISO date inputs if provided
+    def _validate_iso(ts: str | None) -> str | None:
+        if not ts:
+            return None
+        try:
+            # parse to ensure valid ISO-8601; reformat to standard representation
+            dt = datetime.fromisoformat(ts)
+            return dt.isoformat()
+        except Exception:
+            return "__invalid__"
+
+    start_norm = _validate_iso(start_ts)
+    end_norm = _validate_iso(end_ts)
+    if start_ts and start_norm == "__invalid__":
+        return jsonify({"error": "invalid date", "message": "start_ts must be ISO-8601"}), 400
+    if end_ts and end_norm == "__invalid__":
+        return jsonify({"error": "invalid date", "message": "end_ts must be ISO-8601"}), 400
     page = request.args.get("page")
     per_page = request.args.get("per_page")
     try:
@@ -369,7 +387,7 @@ def list_plugin_audit():
         per_page_i = int(per_page) if per_page else None
     except Exception:
         per_page_i = None
-    entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_ts, end_ts=end_ts, page=page_i, per_page=per_page_i)
+    entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_norm, end_ts=end_norm, page=page_i, per_page=per_page_i)
     # If pagination requested, return metadata alongside items
     if page_i is not None and per_page_i is not None:
         total = service.count_plugin_audit(name=name, action=action, start_ts=start_ts, end_ts=end_ts)
