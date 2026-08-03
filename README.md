@@ -123,7 +123,25 @@ Use the endpoints:
 - GET /dashboard
 - POST /plugins
 - GET /plugins
+- GET /plugins/audit
+- GET /plugins/audit.csv
 - POST /builder/run
+
+### Plugin audit examples
+
+List plugin audit entries with cursor pagination:
+
+```bash
+curl -X GET 'http://127.0.0.1:5000/plugins/audit?per_page=5' \
+  -H 'X-API-Key: test-key'
+```
+
+Follow the `Link` header with the returned cursor:
+
+```bash
+curl -X GET 'http://127.0.0.1:5000/plugins/audit?cursor=123&per_page=5' \
+  -H 'X-API-Key: test-key'
+```
 
 Run the universal builder with:
 

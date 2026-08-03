@@ -393,7 +393,30 @@ def list_plugin_audit():
     except Exception:
         return jsonify({"error": "invalid cursor", "message": "cursor must be an integer id"}), 400
 
-    entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_norm, end_ts=end_norm, page=page_i, per_page=per_page_i, cursor=cursor_i)
+    cursor_mode = page_i is None and per_page_i is not None
+    next_link = None
+    if cursor_mode:
+        fetch_limit = per_page_i + 1 if per_page_i else l
+        fetched = service.list_plugin_audit(l, name=name, action=action, start_ts=start_norm, end_ts=end_norm, page=None, per_page=fetch_limit, cursor=cursor_i)
+        if per_page_i and len(fetched) > per_page_i:
+            entries = fetched[:per_page_i]
+            next_cursor = entries[-1]["id"]
+            base = request.base_url
+            query = [f"cursor={next_cursor}", f"per_page={per_page_i}"]
+            if name:
+                query.append(f"name={name}")
+            if action:
+                query.append(f"action={action}")
+            if start_ts:
+                query.append(f"start_ts={start_ts}")
+            if end_ts:
+                query.append(f"end_ts={end_ts}")
+            next_link = f"<{base}?{'&'.join(query)}>; rel=\"next\""
+        else:
+            entries = fetched
+    else:
+        entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_norm, end_ts=end_norm, page=page_i, per_page=per_page_i, cursor=cursor_i)
+
     # If pagination requested, return metadata alongside items
     if page_i is not None and per_page_i is not None:
         total = service.count_plugin_audit(name=name, action=action, start_ts=start_ts, end_ts=end_ts)
@@ -426,7 +449,11 @@ def list_plugin_audit():
         if links:
             resp.headers["Link"] = ", ".join(links)
         return resp
-    return jsonify(entries)
+
+    resp = jsonify(entries)
+    if next_link:
+        resp.headers["Link"] = next_link
+    return resp
 
 
 @app.route("/plugins/audit.csv", methods=["GET"])

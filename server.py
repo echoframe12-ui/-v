@@ -80,7 +80,7 @@ class OceanicOSService:
 
         Supports simple page/per_page pagination. Returns entries ordered by id desc.
         """
-        sql = "SELECT id, name, action, actor, details, ts FROM plugin_audit"
+        base_sql = "SELECT id, name, action, actor, details, ts FROM plugin_audit"
         params: list[Any] = []
         clauses: list[str] = []
         if name:
@@ -95,23 +95,34 @@ class OceanicOSService:
         if end_ts:
             clauses.append("ts <= ?")
             params.append(end_ts)
-        if clauses:
-            sql += " WHERE " + " AND ".join(clauses)
-        sql += " ORDER BY id DESC"
+
+        # If caller provided per_page without page and no cursor, treat per_page as the limit
+        if page is None and per_page is not None and cursor is None:
+            limit = per_page
+
         # Support cursor-based pagination when `cursor` is provided: return items with id < cursor
         if cursor is not None:
             clauses.append("id < ?")
             params.append(cursor)
             per = per_page or limit
+
+        # assemble final SQL with WHERE (including cursor if added)
+        if clauses:
+            sql = base_sql + " WHERE " + " AND ".join(clauses)
+        else:
+            sql = base_sql
+
+        # apply ordering and limits
+        if cursor is not None:
             sql += " ORDER BY id DESC LIMIT ?"
             params.append(per)
         elif page is not None and per_page is not None:
             offset = max(0, (page - 1)) * per_page
-            sql += " LIMIT ? OFFSET ?"
+            sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
             params.append(per_page)
             params.append(offset)
         else:
-            sql += " LIMIT ?"
+            sql += " ORDER BY id DESC LIMIT ?"
             params.append(limit)
 
         with sqlite3.connect(self._db_path) as conn:

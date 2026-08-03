@@ -77,6 +77,40 @@ Example response shape:
 }
 ```
 
+### Plugin Audit
+- GET /plugins/audit
+  - Query params:
+    - `name` (string): filter audit entries by plugin name
+    - `action` (string): filter by lifecycle action such as `register`, `update`, or `unregister`
+    - `start_ts`/`end_ts` (ISO-8601 datetime): filter entries by timestamp range
+    - `page` (integer): page number for offset-based pagination
+    - `per_page` (integer): number of entries per page
+    - `cursor` (integer): optional cursor id for id-based pagination; returns entries with `id < cursor`
+  - Returns:
+    - `GET /plugins/audit?page=1&per_page=20` returns paged metadata and a `Link` header for next/prev pages
+    - `GET /plugins/audit?per_page=20` returns the first page of entries with a `Link` header containing a `cursor` value for the next batch
+  - Response shapes:
+    - offset pagination:
+
+```json
+{
+  "items": [...],
+  "page": 1,
+  "per_page": 20,
+  "total": 124,
+  "total_pages": 7
+}
+```
+
+    - cursor pagination returns a list of entries and a `Link` header such as:
+
+```http
+Link: </plugins/audit?cursor=97&per_page=20>; rel="next"
+```
+
+- GET /plugins/audit.csv
+  - Exports filtered audit entries as CSV
+
 ### Mini HTTP Examples
 
 Quick curl examples demonstrating plugin registration, invocation, and lifecycle operations (assumes `X-API-Key` when `API_KEY` is set):
