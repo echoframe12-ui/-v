@@ -8,7 +8,6 @@ from dashboard import Dashboard
 from decisions import DecisionRegistry
 from models import ModelAdapter, ModelRouter
 from planner import Planner
-from plugins import PluginRegistry
 from review import ReviewEngine
 from server import OceanicOSService
 from state import StateSnapshot
@@ -26,7 +25,6 @@ review_engine = ReviewEngine()
 decision_registry = DecisionRegistry()
 artifact_registry = ArtifactRegistry()
 dashboard = Dashboard()
-plugin_registry = PluginRegistry()
 
 
 @app.route("/", methods=["GET"])
@@ -46,7 +44,7 @@ def status():
             "health": service.health(),
             "memory_count": len(service.search_memory("")),
             "tools": service.list_tools(),
-            "plugins_count": len(plugin_registry.list()),
+            "plugins_count": len(service.list_plugins()),
             "artifacts_count": len(artifact_registry.list()),
             "dashboard_count": dashboard.summary()["count"],
         }
@@ -262,12 +260,17 @@ def register_plugin():
     payload = request.get_json(silent=True) or {}
     name = payload.get("name", "")
     capabilities = payload.get("capabilities", [])
-    return jsonify(plugin_registry.register(name, capabilities))
+    builtin = payload.get("builtin", False)
+    builtin_name = payload.get("builtin_name")
+    config = {"capabilities": capabilities, "builtin": bool(builtin)}
+    if builtin_name:
+        config["builtin_name"] = builtin_name
+    return jsonify(service.register_plugin(name, config))
 
 
 @app.route("/plugins", methods=["GET"])
 def list_plugins():
-    return jsonify(plugin_registry.list())
+    return jsonify(service.list_plugins())
 
 
 def main() -> None:
