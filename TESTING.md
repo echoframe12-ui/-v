@@ -56,6 +56,13 @@ curl -X POST http://127.0.0.1:5050/plugins \
 	-H 'X-API-Key: test-key' \
 	-d '{"name":"mem_e2e","builtin":true,"builtin_name":"memory_inmem"}'
 
+# Alternative: use `Authorization: Bearer <token>` instead of `X-API-Key`
+# Example using Authorization header:
+curl -X POST http://127.0.0.1:5050/plugins \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer test-key' \
+  -d '{"name":"mem_e2e_bearer","builtin":true,"builtin_name":"memory_inmem"}'
+
 # Store an entry via the tool
 curl -X POST http://127.0.0.1:5050/tools/mem_e2e \
 	-H 'Content-Type: application/json' \

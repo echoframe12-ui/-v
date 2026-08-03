@@ -34,9 +34,15 @@ def _require_api_key(req: request) -> tuple[bool, tuple[dict, int] | None]:
     # If no API_KEY configured, allow open access (useful for local/dev)
     if not expected:
         return True, None
+    # accept either X-API-Key or Authorization: Bearer <token>
     key = req.headers.get("X-API-Key", "")
     if key == expected:
         return True, None
+    auth = req.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth.split(" ", 1)[1].strip()
+        if token == expected:
+            return True, None
     return False, (jsonify({"error": "unauthorized"}), 401)
 
 

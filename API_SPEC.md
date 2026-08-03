@@ -94,6 +94,12 @@ curl -X POST http://127.0.0.1:5000/tools/mem_demo \
   -H 'X-API-Key: test-key' \
   -d '{"action":"store","entry":{"text":"hello","source":"curl"}}'
 
+# You may also use an Authorization Bearer token header instead of `X-API-Key`:
+curl -X POST http://127.0.0.1:5000/tools/mem_demo \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer test-key' \
+  -d '{"action":"store","entry":{"text":"hello","source":"curl"}}'
+
 # Delete plugin
 curl -X DELETE http://127.0.0.1:5000/plugins/mem_demo \
   -H 'X-API-Key: test-key'
