@@ -344,6 +344,19 @@ def list_plugins():
     return jsonify(service.list_plugins())
 
 
+@app.route("/plugins/audit", methods=["GET"])
+def list_plugin_audit():
+    ok, resp = _require_api_key(request)
+    if not ok:
+        return resp
+    limit = request.args.get("limit")
+    try:
+        l = int(limit) if limit else 100
+    except Exception:
+        l = 100
+    return jsonify(service.list_plugin_audit(l))
+
+
 def main() -> None:
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "5000"))

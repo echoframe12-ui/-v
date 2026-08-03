@@ -43,6 +43,35 @@ class OceanicOSService:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS plugin_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    actor TEXT,
+                    details TEXT,
+                    ts DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+    def record_plugin_audit(self, name: str, action: str, actor: str | None = None, details: dict | None = None) -> None:
+        """Record a plugin lifecycle action for audit and debugging."""
+        details_text = json.dumps(details) if details is not None else None
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "INSERT INTO plugin_audit (name, action, actor, details) VALUES (?, ?, ?, ?)",
+                (name, action, actor, details_text),
+            )
+
+    def list_plugin_audit(self, limit: int = 100) -> list[dict[str, Any]]:
+        with sqlite3.connect(self._db_path) as conn:
+            rows = conn.execute("SELECT id, name, action, actor, details, ts FROM plugin_audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [
+            {"id": row[0], "name": row[1], "action": row[2], "actor": row[3], "details": json.loads(row[4]) if row[4] else None, "ts": row[5]}
+            for row in rows
+        ]
 
     def health(self) -> dict[str, Any]:
         return {"status": "ok", "service": "OceanicOS"}
@@ -103,6 +132,11 @@ class OceanicOSService:
                 (name, json.dumps(config)),
             )
         self._plugins.append({"name": name, "config": config})
+        # audit record
+        try:
+            self.record_plugin_audit(name, "register", None, config)
+        except Exception:
+            pass
         return {"registered": True, "name": name}
 
     def unregister_plugin(self, name: str) -> dict[str, Any]:
@@ -119,6 +153,11 @@ class OceanicOSService:
         if found:
             # unregister by filtering
             self._plugin_registry._plugins = [p for p in self._plugin_registry._plugins if p.get("name") != name]
+        # audit record
+        try:
+            self.record_plugin_audit(name, "unregister", None, None)
+        except Exception:
+            pass
         return {"unregistered": True, "name": name}
 
     def update_plugin(self, name: str, config: dict[str, Any]) -> dict[str, Any]:
@@ -150,6 +189,12 @@ class OceanicOSService:
                     self._tools[name] = lambda payload, inst=instance: inst.invoke(payload)
                 except Exception as exc:  # pragma: no cover - defensive
                     return {"updated": False, "error": str(exc)}
+
+        # audit record
+        try:
+            self.record_plugin_audit(name, "update", None, config)
+        except Exception:
+            pass
 
         return {"updated": True, "name": name}
 
