@@ -12,5 +12,12 @@ class ArtifactRegistry:
         self._artifacts.append(artifact)
         return artifact
 
+    def update_status(self, name: str, status: str) -> dict[str, Any] | None:
+        for artifact in self._artifacts:
+            if artifact["name"] == name:
+                artifact["status"] = status
+                return artifact
+        return None
+
     def list(self) -> list[dict[str, Any]]:
         return list(self._artifacts)

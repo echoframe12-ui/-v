@@ -12,5 +12,12 @@ class DecisionRegistry:
         self._decisions.append(entry)
         return entry
 
+    def update(self, title: str, decision: str) -> dict[str, Any] | None:
+        for entry in self._decisions:
+            if entry["title"] == title:
+                entry["decision"] = decision
+                return entry
+        return None
+
     def list(self) -> list[dict[str, Any]]:
         return list(self._decisions)

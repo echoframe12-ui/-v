@@ -39,6 +39,20 @@ def health():
     return jsonify(service.health())
 
 
+@app.route("/status", methods=["GET"])
+def status():
+    return jsonify(
+        {
+            "health": service.health(),
+            "memory_count": len(service.search_memory("")),
+            "tools": service.list_tools(),
+            "plugins_count": len(plugin_registry.list()),
+            "artifacts_count": len(artifact_registry.list()),
+            "dashboard_count": dashboard.summary()["count"],
+        }
+    )
+
+
 @app.route("/plans", methods=["POST"])
 def create_plan():
     payload = request.get_json(silent=True) or {}
@@ -214,6 +228,8 @@ def run_builder():
         "plan",
         "draft",
     )
+    artifact_registry.update_status(artifact_result["name"], "ready")
+    decision_registry.update(f"Run {task}", f"Accepted a builder run for {task} and marked artifact ready")
 
     return jsonify(
         {
@@ -223,7 +239,19 @@ def run_builder():
             "state": state_snapshot.snapshot(),
             "review": review_result,
             "decision": decision_result,
-            "artifact": artifact_result,
+            "artifact": artifact_registry.list()[-1],
+            "dashboard": dashboard.summary(),
+        }
+    )
+
+
+@app.route("/builder/trace", methods=["GET"])
+def builder_trace():
+    return jsonify(
+        {
+            "state": state_snapshot.snapshot(),
+            "decisions": decision_registry.list(),
+            "artifacts": artifact_registry.list(),
             "dashboard": dashboard.summary(),
         }
     )

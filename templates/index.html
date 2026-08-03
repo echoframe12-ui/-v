@@ -74,6 +74,11 @@
     </div>
 
     <div class="card">
+      <h2>Status Snapshot</h2>
+      <pre id="status">Loading…</pre>
+    </div>
+
+    <div class="card">
       <h2>Output</h2>
       <pre id="result">{} </pre>
     </div>
@@ -83,6 +88,12 @@
         const response = await fetch('/health');
         const data = await response.json();
         document.getElementById('health').textContent = JSON.stringify(data, null, 2);
+      }
+
+      async function loadStatus() {
+        const response = await fetch('/status');
+        const data = await response.json();
+        document.getElementById('status').textContent = JSON.stringify(data, null, 2);
       }
 
       document.getElementById('builder-form').addEventListener('submit', async (event) => {
@@ -103,6 +114,7 @@
       });
 
       loadHealth();
+      loadStatus();
     </script>
   </body>
 </html>

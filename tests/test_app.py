@@ -24,6 +24,19 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("steps", response.get_json())
 
+    def test_status_endpoint(self):
+        self.client.post(
+            "/memory",
+            data=json.dumps({"text": "Need review", "source": "api"}),
+            content_type="application/json",
+        )
+        response = self.client.get("/status")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["health"]["status"], "ok")
+        self.assertGreaterEqual(payload["memory_count"], 1)
+        self.assertIn("artifacts_count", payload)
+
     def test_main_uses_environment_configuration(self):
         with patch.dict(
             "os.environ",
@@ -178,6 +191,18 @@ class OceanicOSAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["task"], "Draft a charter update")
         self.assertEqual(response.get_json()["model"]["adapter"], "local")
+        self.assertEqual(response.get_json()["artifact"]["status"], "ready")
+
+    def test_builder_trace_endpoint(self):
+        self.client.post(
+            "/builder/run",
+            data=json.dumps({"task": "Trace a builder run", "context": "Governance"}),
+            content_type="application/json",
+        )
+        response = self.client.get("/builder/trace")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("decisions", response.get_json())
+        self.assertIn("artifacts", response.get_json())
 
     def test_plugin_endpoints(self):
         response = self.client.post(
