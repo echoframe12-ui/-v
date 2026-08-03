@@ -369,7 +369,15 @@ def list_plugin_audit():
         per_page_i = int(per_page) if per_page else None
     except Exception:
         per_page_i = None
-    return jsonify(service.list_plugin_audit(l, name=name, action=action, start_ts=start_ts, end_ts=end_ts, page=page_i, per_page=per_page_i))
+    entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_ts, end_ts=end_ts, page=page_i, per_page=per_page_i)
+    # If pagination requested, return metadata alongside items
+    if page_i is not None and per_page_i is not None:
+        total = service.count_plugin_audit(name=name, action=action, start_ts=start_ts, end_ts=end_ts)
+        import math
+
+        total_pages = math.ceil(total / per_page_i) if per_page_i > 0 else 1
+        return jsonify({"items": entries, "page": page_i, "per_page": per_page_i, "total": total, "total_pages": total_pages})
+    return jsonify(entries)
 
 
 @app.route("/plugins/audit.csv", methods=["GET"])

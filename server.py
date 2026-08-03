@@ -113,6 +113,28 @@ class OceanicOSService:
             for row in rows
         ]
 
+    def count_plugin_audit(self, name: str | None = None, action: str | None = None, start_ts: str | None = None, end_ts: str | None = None) -> int:
+        sql = "SELECT COUNT(*) FROM plugin_audit"
+        params: list[Any] = []
+        clauses: list[str] = []
+        if name:
+            clauses.append("name = ?")
+            params.append(name)
+        if action:
+            clauses.append("action = ?")
+            params.append(action)
+        if start_ts:
+            clauses.append("ts >= ?")
+            params.append(start_ts)
+        if end_ts:
+            clauses.append("ts <= ?")
+            params.append(end_ts)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        with sqlite3.connect(self._db_path) as conn:
+            row = conn.execute(sql, tuple(params)).fetchone()
+        return int(row[0]) if row else 0
+
     def health(self) -> dict[str, Any]:
         return {"status": "ok", "service": "OceanicOS"}
 
