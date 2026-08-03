@@ -65,10 +65,19 @@ class OceanicOSService:
                 (name, action, actor, details_text),
             )
 
-    def list_plugin_audit(self, limit: int = 100, name: str | None = None, action: str | None = None) -> list[dict[str, Any]]:
-        """List plugin audit entries with optional filtering by name and action.
+    def list_plugin_audit(
+        self,
+        limit: int = 100,
+        name: str | None = None,
+        action: str | None = None,
+        start_ts: str | None = None,
+        end_ts: str | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """List plugin audit entries with optional filtering by name, action, and time range.
 
-        Returns entries ordered by id desc up to `limit`.
+        Supports simple page/per_page pagination. Returns entries ordered by id desc.
         """
         sql = "SELECT id, name, action, actor, details, ts FROM plugin_audit"
         params: list[Any] = []
@@ -79,10 +88,24 @@ class OceanicOSService:
         if action:
             clauses.append("action = ?")
             params.append(action)
+        if start_ts:
+            clauses.append("ts >= ?")
+            params.append(start_ts)
+        if end_ts:
+            clauses.append("ts <= ?")
+            params.append(end_ts)
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        sql += " ORDER BY id DESC LIMIT ?"
-        params.append(limit)
+        sql += " ORDER BY id DESC"
+        if page is not None and per_page is not None:
+            offset = max(0, (page - 1)) * per_page
+            sql += " LIMIT ? OFFSET ?"
+            params.append(per_page)
+            params.append(offset)
+        else:
+            sql += " LIMIT ?"
+            params.append(limit)
+
         with sqlite3.connect(self._db_path) as conn:
             rows = conn.execute(sql, tuple(params)).fetchall()
         return [

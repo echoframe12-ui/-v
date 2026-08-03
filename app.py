@@ -357,7 +357,19 @@ def list_plugin_audit():
         l = 100
     name = request.args.get("name")
     action = request.args.get("action")
-    return jsonify(service.list_plugin_audit(l, name=name, action=action))
+    start_ts = request.args.get("start_ts")
+    end_ts = request.args.get("end_ts")
+    page = request.args.get("page")
+    per_page = request.args.get("per_page")
+    try:
+        page_i = int(page) if page else None
+    except Exception:
+        page_i = None
+    try:
+        per_page_i = int(per_page) if per_page else None
+    except Exception:
+        per_page_i = None
+    return jsonify(service.list_plugin_audit(l, name=name, action=action, start_ts=start_ts, end_ts=end_ts, page=page_i, per_page=per_page_i))
 
 
 @app.route("/plugins/audit.csv", methods=["GET"])
