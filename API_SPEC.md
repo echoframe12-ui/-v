@@ -77,6 +77,29 @@ Example response shape:
 }
 ```
 
+### Mini HTTP Examples
+
+Quick curl examples demonstrating plugin registration, invocation, and lifecycle operations (assumes `X-API-Key` when `API_KEY` is set):
+
+```bash
+# Register a builtin plugin named 'mem_demo'
+curl -X POST http://127.0.0.1:5000/plugins \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: test-key' \
+  -d '{"name":"mem_demo","builtin":true,"builtin_name":"memory_inmem"}'
+
+# Invoke tool to store an entry
+curl -X POST http://127.0.0.1:5000/tools/mem_demo \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: test-key' \
+  -d '{"action":"store","entry":{"text":"hello","source":"curl"}}'
+
+# Delete plugin
+curl -X DELETE http://127.0.0.1:5000/plugins/mem_demo \
+  -H 'X-API-Key: test-key'
+```
+```
+
 Design notes:
 
 - Backwards compatibility: simple plugins may register with only `name` and `capabilities` while richer plugins should provide `schema` and a class-based implementation exposed via a registry.
