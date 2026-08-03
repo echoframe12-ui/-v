@@ -1,4 +1,4 @@
-from plugins.samples import EchoPlugin
+from plugins_example import EchoPlugin
 from plugins import PluginRegistry
 
 
