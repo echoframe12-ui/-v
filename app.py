@@ -1,6 +1,7 @@
 import os
 
 from flask import Flask, jsonify, render_template, request
+from jsonschema import validate, ValidationError
 
 from agent import AgentLoop
 from artifacts import ArtifactRegistry
@@ -78,7 +79,25 @@ def list_tools():
 @app.route("/tools/<name>", methods=["POST"])
 def invoke_tool(name: str):
     payload = request.get_json(silent=True) or {}
-    return jsonify(service.invoke_tool(name, payload))
+    # If plugin provides a schema in its stored config, validate the payload first.
+    config = service.get_plugin_config(name)
+    schema = None
+    if config:
+        schema = config.get("schema")
+    if schema:
+        try:
+            validate(instance=payload, schema=schema)
+        except ValidationError as exc:
+            return (
+                jsonify({"error": "invalid payload", "message": str(exc)}),
+                400,
+            )
+    try:
+        return jsonify(service.invoke_tool(name, payload))
+    except ValueError as exc:
+        return jsonify({"error": "invalid input", "message": str(exc)}), 400
+    except Exception as exc:  # pragma: no cover - unexpected plugin error
+        return jsonify({"error": "internal error", "message": str(exc)}), 500
 
 
 @app.route("/workflows", methods=["POST"])

@@ -1,2 +1,4 @@
 # Minimal runtime for the starter OceanicOS service
 pytest
+flask
+jsonschema
