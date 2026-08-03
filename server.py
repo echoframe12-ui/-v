@@ -74,6 +74,7 @@ class OceanicOSService:
         end_ts: str | None = None,
         page: int | None = None,
         per_page: int | None = None,
+        cursor: int | None = None,
     ) -> list[dict[str, Any]]:
         """List plugin audit entries with optional filtering by name, action, and time range.
 
@@ -97,7 +98,14 @@ class OceanicOSService:
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY id DESC"
-        if page is not None and per_page is not None:
+        # Support cursor-based pagination when `cursor` is provided: return items with id < cursor
+        if cursor is not None:
+            clauses.append("id < ?")
+            params.append(cursor)
+            per = per_page or limit
+            sql += " ORDER BY id DESC LIMIT ?"
+            params.append(per)
+        elif page is not None and per_page is not None:
             offset = max(0, (page - 1)) * per_page
             sql += " LIMIT ? OFFSET ?"
             params.append(per_page)

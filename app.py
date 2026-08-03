@@ -387,7 +387,13 @@ def list_plugin_audit():
         per_page_i = int(per_page) if per_page else None
     except Exception:
         per_page_i = None
-    entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_norm, end_ts=end_norm, page=page_i, per_page=per_page_i)
+    cursor = request.args.get("cursor")
+    try:
+        cursor_i = int(cursor) if cursor else None
+    except Exception:
+        return jsonify({"error": "invalid cursor", "message": "cursor must be an integer id"}), 400
+
+    entries = service.list_plugin_audit(l, name=name, action=action, start_ts=start_norm, end_ts=end_norm, page=page_i, per_page=per_page_i, cursor=cursor_i)
     # If pagination requested, return metadata alongside items
     if page_i is not None and per_page_i is not None:
         total = service.count_plugin_audit(name=name, action=action, start_ts=start_ts, end_ts=end_ts)
