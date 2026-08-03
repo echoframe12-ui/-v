@@ -1,5 +1,6 @@
 # Minimal runtime for the starter OceanicOS service
 pytest
+pytest-cov
 flask
 jsonschema
 requests
