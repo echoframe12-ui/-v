@@ -4,6 +4,9 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Any
+from importlib import import_module
+
+from plugins import PluginRegistry
 
 
 class OceanicOSService:
@@ -14,6 +17,12 @@ class OceanicOSService:
             "echo": self._echo_tool,
         }
         self._plugins: list[dict[str, Any]] = []
+        self._plugin_registry = PluginRegistry()
+        # built-in plugin factories (module path, class name)
+        self._builtin_plugins: dict[str, tuple[str, str]] = {
+            "echo_plugin": ("plugins_example", "EchoPlugin"),
+            "memory_inmem": ("memory_plugin_example", "MemoryPlugin"),
+        }
         self._init_db()
 
     def _init_db(self) -> None:
@@ -73,6 +82,21 @@ class OceanicOSService:
         return self._tools[name](payload)
 
     def register_plugin(self, name: str, config: dict[str, Any]) -> dict[str, Any]:
+        # If config requests a builtin plugin, try to instantiate and register it.
+        if config.get("builtin"):
+            builtin = config.get("builtin_name") or name
+            if builtin in self._builtin_plugins:
+                mod_path, cls_name = self._builtin_plugins[builtin]
+                try:
+                    mod = import_module(mod_path)
+                    cls = getattr(mod, cls_name)
+                    instance = cls(name=name)
+                    # register instance as a callable tool
+                    self._plugin_registry.register_plugin(instance)
+                    self._tools[name] = lambda payload, inst=instance: inst.invoke(payload)
+                except Exception as exc:  # pragma: no cover - defensive
+                    return {"registered": False, "error": str(exc)}
+
         with sqlite3.connect(self._db_path) as conn:
             conn.execute(
                 "INSERT OR REPLACE INTO plugins (name, config) VALUES (?, ?)",
