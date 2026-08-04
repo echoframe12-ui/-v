@@ -33,6 +33,30 @@ def _signed_attestation(final_output="ledger output", parent_attestation_id=None
     )
 
 
+def _evolved_attestation(parent, final_output="state-1"):
+    cycle = OceanicCycle()
+    event = cycle.execute(
+        Observation(observer="test", what="evolved ledger state", evidence=("evidence:evolved",)),
+        Contract(contract_id="C-LEDGER", clauses=("signed output is persisted",)),
+        VerificationResult(
+            status=VerificationStatus.VERIFIED,
+            confidence=0.98,
+            evidence_hash="sha256:evidence-evolved",
+            checks_passed=1,
+            checks_total=1,
+        ),
+    )
+    private_key, _ = generate_keypair()
+    return evolve_attestation(
+        parent,
+        event,
+        prompt="ledger evolution",
+        final_output=final_output,
+        schema_digest="sha256:schema-v01",
+        private_key=private_key,
+    )
+
+
 class OceanicEventLedgerTests(unittest.TestCase):
 
     def test_append_and_verify_hash_chain(self):
@@ -75,6 +99,32 @@ class OceanicEventLedgerTests(unittest.TestCase):
             self.assertEqual(lineage[1]["parent_attestation_id"], lineage[0]["attestation_id"])
             self.assertTrue(verify_attestation(lineage[0], expected_schema_digest="sha256:schema-v01")["valid"])
             self.assertTrue(verify_attestation(lineage[1], expected_schema_digest="sha256:schema-v01")["valid"])
+            self.assertTrue(ledger.verify_chain())
+
+    def test_real_evolution_persists_parent_child_lineage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = EventLedger(Path(directory) / "events.jsonl")
+            parent = _signed_attestation("state-0")
+            ledger.append_attestation(parent)
+            parent_before = parent.to_json()
+
+            child = _evolved_attestation(parent, "state-1")
+            ledger.append_attestation(child)
+
+            self.assertEqual(parent.to_json(), parent_before)
+            self.assertNotEqual(parent.document["attestation_id"], child.document["attestation_id"])
+            self.assertEqual(child.document["parent_attestation_id"], parent.document["attestation_id"])
+
+            reloaded_parent = ledger.get_attestation(parent.document["attestation_id"])
+            reloaded_child = ledger.get_attestation(child.document["attestation_id"])
+            self.assertTrue(verify_attestation(reloaded_parent, expected_schema_digest="sha256:schema-v01")["valid"])
+            self.assertTrue(verify_attestation(reloaded_child, expected_schema_digest="sha256:schema-v01")["valid"])
+
+            lineage = ledger.get_attestation_lineage(child.document["attestation_id"])
+            self.assertEqual(
+                tuple(item["attestation_id"] for item in lineage),
+                (parent.document["attestation_id"], child.document["attestation_id"]),
+            )
             self.assertTrue(ledger.verify_chain())
 
     def test_missing_parent_is_rejected(self):
