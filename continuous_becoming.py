@@ -58,6 +58,38 @@ class ContinuousBecomingEngine:
             verification_hash=observation.verification_hash,
         )
 
+    def advance_mood(
+        self,
+        assessment: Any,
+        *,
+        current_state: str = "observed",
+        provenance: tuple[str, ...] = ("mood",),
+        verification_hash: str = "",
+    ) -> BecomingTransition:
+        """Translate a MOOD assessment into a BecomingTransition."""
+        requires_human = getattr(assessment, "requires_human", False)
+        status = getattr(assessment, "status", "clear")
+        gaps = getattr(assessment, "gaps", ())
+
+        if requires_human or status == "dissent":
+            next_state = "await_human"
+            action = "await_human"
+            reason = f"MOOD dissent: {', '.join(gaps) if gaps else 'dissent detected'}"
+        else:
+            next_state = "act_then_observe"
+            action = "continue_becoming"
+            reason = "MOOD clear: verification passed"
+
+        return BecomingTransition(
+            current_state=current_state,
+            next_state=next_state,
+            action=action,
+            loop=True,
+            reason=reason,
+            provenance=provenance,
+            verification_hash=verification_hash,
+        )
+
     @staticmethod
     def to_dict(transition: BecomingTransition) -> dict[str, Any]:
         return {

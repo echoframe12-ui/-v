@@ -45,6 +45,22 @@ class ContinuousBecomingTests(unittest.TestCase):
         self.assertEqual(payload["current_state"], "authorized")
         self.assertEqual(payload["provenance"], ["source"])
 
+    def test_advance_mood_clear(self):
+        from mood import MoodAssessment
+        assessment = MoodAssessment(status="clear", route="continue")
+        transition = ContinuousBecomingEngine().advance_mood(assessment)
+        self.assertEqual(transition.action, "continue_becoming")
+        self.assertEqual(transition.next_state, "act_then_observe")
+        self.assertTrue(transition.loop)
+
+    def test_advance_mood_dissent(self):
+        from mood import MoodAssessment
+        assessment = MoodAssessment(status="dissent", gaps=("dissent:response",), route="human")
+        transition = ContinuousBecomingEngine().advance_mood(assessment)
+        self.assertEqual(transition.action, "await_human")
+        self.assertEqual(transition.next_state, "await_human")
+        self.assertIn("MOOD dissent", transition.reason)
+
 
 if __name__ == "__main__":
     unittest.main()
