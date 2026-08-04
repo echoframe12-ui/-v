@@ -12,8 +12,9 @@ def test_key_id_is_stable_for_same_private_key():
     assert restored.public_key == signer.public_key
 
 
-def test_environment_provisioning_round_trips():
+def test_environment_provisioning_round_trips(monkeypatch):
     signer = OmegaSigner.generate_for_provisioning()
+    monkeypatch.setenv(ENV_PRIVATE_KEY, signer.private_key_b64())
     restored = OmegaSigner.from_environment()
     assert restored.private_key == signer.private_key
     assert restored.public_key == signer.public_key
