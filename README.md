@@ -225,8 +225,22 @@ OceanicOS is meant to be a living, agnostic approach to building systems that ar
 - Invite collaborators to review and refine the charter.
 - Implement the first working orchestration loop around planning, memory, and tool use.
 
+## CLI Execution Interface
+
+OceanicOS provides a command-line interface ([cli.py](cli.py)) for running plans, executing tools, creating and running durable workflows, and managing plugins directly from the terminal:
+
+```bash
+python cli.py health
+python cli.py plan "Draft an execution charter"
+python cli.py run "Build the charter platform"
+python cli.py tool echo '{"message": "OceanicOS ready"}'
+python cli.py workflow create review '[{"name":"echo","type":"tool"}]'
+python cli.py workflow run review
+python cli.py workflow list
+python cli.py plugins
+```
+
 ## Related resources
 
 - See [ROADMAP.md](ROADMAP.md) for the initial milestones and goals.
 - See [CONSTITUTION.md](CONSTITUTION.md) for the rules that guide the project.
->>>>>>> 493d8e4 (Add interactive builder, startup config, and deployment entry)
