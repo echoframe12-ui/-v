@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-"""Small adapter from signed attestations into Continuous Becoming.
+"""Adapter from signed attestations into the existing Observer/Continuous Becoming boundary.
 
-This module deliberately does not create a second lifecycle. It validates the
-signed attestation, converts its recorded next state into the existing
-Continuous Becoming Observation shape, and lets that existing state machine
-produce the next observation.
+This module deliberately does not create a second lifecycle. It independently
+verifies a signed attestation and projects its already-recorded result into the
+repository's real ``observer.Observation`` shape. ContinuousBecomingEngine can
+then consume that observation without bypassing the existing lifecycle.
 """
 
 from dataclasses import dataclass
-from typing import Any
 
-from attestation_protocol import SignedAttestation, verify_attestation
-from continuous_becoming import Observation, State
+from attestation_protocol import SignedAttestation, hash_json, verify_attestation
+from observer import Observation
 
 
 @dataclass(frozen=True)
@@ -26,10 +25,10 @@ def transition_from_attestation(
     *,
     expected_schema_digest: str | None = None,
 ) -> ContinuityTransition:
-    """Turn an independently verified signed attestation into the existing
-    Continuous Becoming observation model.
+    """Project an independently verified attestation into an Observation.
 
-    No lifecycle state is mutated here and no verification is bypassed.
+    No lifecycle state is mutated here. The existing
+    ``ContinuousBecomingEngine.advance`` remains the only transition engine.
     """
     report = verify_attestation(
         attestation.to_dict(),
@@ -39,18 +38,30 @@ def transition_from_attestation(
         raise ValueError("cannot transition from an invalid attestation")
 
     document = attestation.document
-    state_name = str(document.get("next_state") or State.OBSERVE.value)
-    try:
-        state = State(state_name)
-    except ValueError as exc:
-        raise ValueError(f"unknown Continuous Becoming state: {state_name}") from exc
+    verification = document.get("verification", {})
+    dissent = document.get("dissent", [])
+    provenance = tuple(
+        value
+        for value in (
+            document.get("attestation_id"),
+            verification.get("cycle_id"),
+            verification.get("contract_id"),
+        )
+        if value
+    )
 
     observation = Observation(
-        state=state,
-        value=document["final_output"],
-        provenance=document["attestation_id"],
+        state=str(document.get("attestation_status", "UNVERIFIED")).lower(),
+        verification_status=str(verification.get("status", "UNVERIFIED")).lower(),
+        authorization_level="unknown",
+        confidence=verification.get("confidence"),
+        dissent=bool(dissent),
+        provenance=provenance,
+        verification_hash=hash_json(verification),
+        attested=True,
+        next_state=str(document.get("next_state", "observe")),
     )
     return ContinuityTransition(
-        parent_attestation_id=document["attestation_id"],
+        parent_attestation_id=str(document["attestation_id"]),
         observation=observation,
     )
