@@ -15,7 +15,7 @@ STACK_MODULES = (
     "oceanic_cycle",
     "oceanic_lifecycle",
     "attestation_protocol",
-    "vaas_bridge",
+    "omega_vaas_bridge",
     "omega_edge",
     "omega_edge_http",
     "attestation_continuity",
