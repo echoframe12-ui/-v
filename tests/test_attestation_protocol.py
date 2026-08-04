@@ -2,7 +2,9 @@
 
 import json
 
-from attestation_protocol import SCHEMA, attest_cycle, generate_keypair, verify_attestation
+import pytest
+
+from attestation_protocol import SCHEMA, attest_cycle, evolve_attestation, generate_keypair, verify_attestation
 from oceanic_cycle import Contract, OceanicCycle, Observation, VerificationResult, VerificationStatus
 
 
@@ -86,7 +88,16 @@ def test_round_trip_is_canonical_and_json_serializable():
 def test_evolution_creates_new_signed_attestation_with_immutable_parent():
     parent = _signed()
     parent_snapshot = json.loads(parent.to_json())
-    child = _signed(parent_attestation_id=parent.document["attestation_id"])
+    child_key, _ = generate_keypair()
+    child = evolve_attestation(
+        parent,
+        _event(),
+        prompt="next input",
+        final_output="next output",
+        schema_digest="sha256:schema-v01",
+        private_key=child_key,
+        expected_parent_schema_digest="sha256:schema-v01",
+    )
 
     assert child.document["attestation_id"] != parent.document["attestation_id"]
     assert child.document["parent_attestation_id"] == parent.document["attestation_id"]
@@ -95,10 +106,38 @@ def test_evolution_creates_new_signed_attestation_with_immutable_parent():
     assert verify_attestation(json.loads(child.to_json()), expected_schema_digest="sha256:schema-v01")["valid"] is True
 
 
+def test_evolution_rejects_invalid_parent():
+    parent = _signed()
+    tampered = json.loads(parent.to_json())
+    tampered["final_output"] = "tampered"
+    invalid_parent = type(parent)(
+        document={k: v for k, v in tampered.items() if k not in {"signature", "verifier"}},
+        signature=tampered["signature"],
+        public_key=tampered["verifier"]["public_key"],
+    )
+    child_key, _ = generate_keypair()
+
+    with pytest.raises(ValueError, match="invalid parent"):
+        evolve_attestation(
+            invalid_parent,
+            _event(),
+            prompt="next input",
+            final_output="next output",
+            schema_digest="sha256:schema-v01",
+            private_key=child_key,
+        )
+
+
 def test_drift_recompile_state_is_signed_into_new_lineage():
     parent = _signed()
-    child = _signed(
-        parent_attestation_id=parent.document["attestation_id"],
+    child_key, _ = generate_keypair()
+    child = evolve_attestation(
+        parent,
+        _event(),
+        prompt="recompiled input",
+        final_output="recompiled output",
+        schema_digest="sha256:schema-v01",
+        private_key=child_key,
         drift_state="detected",
         recompile_state="recompiled",
     )
