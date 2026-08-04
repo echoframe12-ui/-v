@@ -4,15 +4,32 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from attestation_protocol import attest_cycle, generate_keypair, verify_attestation
+from oceanic_cycle import Contract, OceanicCycle, Observation, VerificationResult, VerificationStatus
 from oceanic_event_ledger import EventLedger, LedgerEvent
 
 
-class _SignedAttestationStub:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def to_dict(self):
-        return dict(self._payload)
+def _signed_attestation():
+    cycle = OceanicCycle()
+    event = cycle.execute(
+        Observation(observer="test", what="ledger vertical slice", evidence=("evidence:ledger",)),
+        Contract(contract_id="C-LEDGER", clauses=("signed output is persisted",)),
+        VerificationResult(
+            status=VerificationStatus.VERIFIED,
+            confidence=0.99,
+            evidence_hash="sha256:evidence",
+            checks_passed=1,
+            checks_total=1,
+        ),
+    )
+    private_key, _ = generate_keypair()
+    return attest_cycle(
+        event,
+        prompt="ledger input",
+        final_output="ledger output",
+        schema_digest="sha256:schema-v01",
+        private_key=private_key,
+    )
 
 
 class OceanicEventLedgerTests(unittest.TestCase):
@@ -28,32 +45,35 @@ class OceanicEventLedgerTests(unittest.TestCase):
             self.assertEqual(second.previous_digest, first.event_digest)
             self.assertTrue(ledger.verify_chain())
 
-    def test_signed_attestation_is_persisted_and_retrievable(self):
+    def test_real_signed_attestation_persists_and_independently_verifies(self):
         with tempfile.TemporaryDirectory() as directory:
             ledger = EventLedger(Path(directory) / "events.jsonl")
-            payload = {
-                "attestation_id": "att_signed_1",
-                "schema": "oceanic.attestation/v0.1",
-                "signature": "signed-by-ed25519",
-                "verifier": {"algorithm": "Ed25519", "key_id": "sha256:key"},
-                "output_hash": "sha256:output",
-            }
-            event = ledger.append_attestation(_SignedAttestationStub(payload))
+            attestation = _signed_attestation()
+            event = ledger.append_attestation(attestation)
+            stored = ledger.get_attestation(attestation.document["attestation_id"])
 
             self.assertEqual(event.event_type, "ATTESTATION_ISSUED")
-            self.assertEqual(event.entity_id, "att_signed_1")
-            self.assertEqual(ledger.get_attestation("att_signed_1"), payload)
+            self.assertEqual(event.entity_id, attestation.document["attestation_id"])
+            self.assertIsNotNone(stored)
+            report = verify_attestation(stored, expected_schema_digest="sha256:schema-v01")
+            self.assertTrue(report["valid"])
             self.assertTrue(ledger.verify_chain())
+
+    def test_unsigned_attestation_is_rejected(self):
+        class Unsigned:
+            def to_dict(self):
+                return {"attestation_id": "att_unsigned"}
+
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = EventLedger(Path(directory) / "events.jsonl")
+            with self.assertRaises(ValueError):
+                ledger.append_attestation(Unsigned())
 
     def test_tampering_with_signed_attestation_is_detected_by_ledger_chain(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "events.jsonl"
             ledger = EventLedger(path)
-            ledger.append_attestation(_SignedAttestationStub({
-                "attestation_id": "att_signed_1",
-                "signature": "signed-by-ed25519",
-                "verifier": {"algorithm": "Ed25519", "key_id": "sha256:key"},
-            }))
+            ledger.append_attestation(_signed_attestation())
             lines = path.read_text(encoding="utf-8").splitlines()
             data = json.loads(lines[0])
             data["payload"]["signature"] = "tampered"
