@@ -3,6 +3,7 @@ from verify_stack import verify
 
 def test_verify_full_stack_passes_only_when_all_evidence_is_true():
     result = verify({
+        "omega_contract": True,
         "deployment_ready": True,
         "smoke_ready": True,
         "status_code": 200,
@@ -16,6 +17,7 @@ def test_verify_full_stack_passes_only_when_all_evidence_is_true():
 
 def test_verify_routes_failed_evidence_to_mood():
     result = verify({
+        "omega_contract": True,
         "deployment_ready": True,
         "smoke_ready": True,
         "status_code": 500,
@@ -25,4 +27,19 @@ def test_verify_routes_failed_evidence_to_mood():
     assert result.verified is False
     assert result.mood.status == "dissent"
     assert result.mood.route == "human"
-    assert "dissent:status_endpoint" in result.mood.gaps
+    assert "failed:status_endpoint" in result.mood.gaps
+
+
+def test_verify_requires_omega_contract():
+    result = verify({
+        "omega_contract": False,
+        "deployment_ready": True,
+        "smoke_ready": True,
+        "status_code": 200,
+        "request_id": "production-smoke",
+        "integrity": True,
+    })
+    assert result.verified is False
+    assert result.mood.status == "dissent"
+    assert result.mood.route == "human"
+    assert "failed:omega_contract" in result.mood.gaps
