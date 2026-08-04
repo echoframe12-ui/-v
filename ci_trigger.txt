@@ -1,1 +1,1 @@
-CI trigger marker for Full Stack MOOD verification.
+Full Stack MOOD CI trigger marker — failed-signal routing fixed.
