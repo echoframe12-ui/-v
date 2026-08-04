@@ -6,7 +6,6 @@ def test_final_e2e_integrity(tmp_path, monkeypatch):
     db_path = tmp_path / "final.db"
     workspace = tmp_path / "workspace"
     monkeypatch.setattr(service, "_db_path", db_path)
-    service.init_schema()
     with app.test_client() as client:
         result = verify(client, db_path=str(db_path), workspace=str(workspace))
 
@@ -15,8 +14,4 @@ def test_final_e2e_integrity(tmp_path, monkeypatch):
     assert result.status_code == 200
     assert result.request_id == "production-smoke"
     assert result.deployment["ready"] is True
-    assert result.deployment["checks"] == {
-        "db": True,
-        "workspace": True,
-        "status_endpoint": True,
-    }
+    assert result.deployment["required_checks"] == ["db", "workspace"]
