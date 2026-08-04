@@ -74,11 +74,20 @@ class EventLedger:
         return event
 
     def append_attestation(self, attestation: Any) -> LedgerEvent:
-        """Append one signed attestation without changing the attestation itself."""
+        """Append one signed attestation without changing the attestation itself.
+
+        The ledger checks only the envelope shape. Cryptographic validity is
+        independently established by ``attestation_protocol.verify_attestation``.
+        """
         payload = attestation.to_dict()
         attestation_id = payload.get("attestation_id")
         if not isinstance(attestation_id, str) or not attestation_id:
             raise ValueError("signed attestation must contain attestation_id")
+        if not isinstance(payload.get("signature"), str) or not payload["signature"]:
+            raise ValueError("signed attestation must contain signature")
+        verifier = payload.get("verifier")
+        if not isinstance(verifier, dict) or verifier.get("algorithm") != "Ed25519":
+            raise ValueError("signed attestation must contain an Ed25519 verifier")
         return self.append("ATTESTATION_ISSUED", attestation_id, payload)
 
     def get_attestation(self, attestation_id: str) -> dict[str, Any] | None:
