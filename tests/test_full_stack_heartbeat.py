@@ -25,9 +25,9 @@ def _event(cycle_id: str, status: VerificationStatus, next_state: str) -> CycleE
     )
 
 
-def test_full_persisted_heartbeat():
+def test_full_persisted_heartbeat(tmp_path):
     private, public = generate_keypair()
-    ledger = EventLedger()
+    ledger = EventLedger(tmp_path / "heartbeat.jsonl")
 
     parent = attest_cycle(
         _event("heartbeat-parent", VerificationStatus.VERIFIED, "observe"),
@@ -57,15 +57,15 @@ def test_full_persisted_heartbeat():
 
     assert restored_parent is not None
     assert restored_child is not None
-    assert restored_child.document["parent_attestation_id"] == restored_parent.document["attestation_id"]
-    assert verify_attestation(restored_parent.to_dict(), expected_schema_digest="sha256:schema-v1", public_key=public)["valid"]
-    assert verify_attestation(restored_child.to_dict(), expected_schema_digest="sha256:schema-v2", public_key=public)["valid"]
+    assert restored_child["parent_attestation_id"] == restored_parent["attestation_id"]
+    assert verify_attestation(restored_parent, expected_schema_digest="sha256:schema-v1", public_key=public)["valid"]
+    assert verify_attestation(restored_child, expected_schema_digest="sha256:schema-v2", public_key=public)["valid"]
     assert ledger.verify_chain()
 
 
-def test_failed_recompile_stops_before_ledger_append():
+def test_failed_recompile_stops_before_ledger_append(tmp_path):
     private, _ = generate_keypair()
-    ledger = EventLedger()
+    ledger = EventLedger(tmp_path / "heartbeat-failed.jsonl")
     parent = attest_cycle(
         _event("heartbeat-parent-fail", VerificationStatus.VERIFIED, "observe"),
         prompt="input",
@@ -91,5 +91,5 @@ def test_failed_recompile_stops_before_ledger_append():
     else:
         raise AssertionError("failed reverification crossed the attestation boundary")
 
-    assert len(ledger.events) == 1
+    assert len(ledger.history()) == 1
     assert ledger.verify_chain()
