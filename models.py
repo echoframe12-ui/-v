@@ -59,11 +59,22 @@ class ModelAdapter:
         return {"name": self.name, "provider": self.provider, "keywords": self.keywords}
 
 
+import warnings
+
+
 class ModelRouter:
-    """Route prompts to the best-matching adapter by keyword, falling back to
-    the first registered adapter as the default."""
+    """[DEPRECATED] Route prompts to the best-matching adapter by keyword.
+
+    Deprecated: Use :class:`perspectives.PerspectiveRegistry` for provider-neutral
+    perspective orchestration and dissent evaluation.
+    """
 
     def __init__(self) -> None:
+        warnings.warn(
+            "ModelRouter is deprecated; use perspectives.PerspectiveRegistry instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._adapters: list[ModelAdapter] = []
 
     def register(self, adapter: ModelAdapter) -> None:
