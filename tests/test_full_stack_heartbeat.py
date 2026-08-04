@@ -26,7 +26,7 @@ def _event(cycle_id: str, status: VerificationStatus, next_state: str) -> CycleE
 
 
 def test_full_persisted_heartbeat(tmp_path):
-    private, public = generate_keypair()
+    private, _ = generate_keypair()
     ledger = EventLedger(tmp_path / "heartbeat.jsonl")
 
     parent = attest_cycle(
@@ -38,7 +38,7 @@ def test_full_persisted_heartbeat(tmp_path):
     )
     ledger.append_attestation(parent)
 
-    assert verify_attestation(parent.to_dict(), expected_schema_digest="sha256:schema-v1", public_key=public)["valid"]
+    assert verify_attestation(parent.to_dict(), expected_schema_digest="sha256:schema-v1")["valid"]
 
     child = recompile_and_reattest(
         parent,
@@ -58,8 +58,8 @@ def test_full_persisted_heartbeat(tmp_path):
     assert restored_parent is not None
     assert restored_child is not None
     assert restored_child["parent_attestation_id"] == restored_parent["attestation_id"]
-    assert verify_attestation(restored_parent, expected_schema_digest="sha256:schema-v1", public_key=public)["valid"]
-    assert verify_attestation(restored_child, expected_schema_digest="sha256:schema-v2", public_key=public)["valid"]
+    assert verify_attestation(restored_parent, expected_schema_digest="sha256:schema-v1")["valid"]
+    assert verify_attestation(restored_child, expected_schema_digest="sha256:schema-v2")["valid"]
     assert ledger.verify_chain()
 
 
