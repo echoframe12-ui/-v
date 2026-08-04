@@ -24,3 +24,10 @@ def test_mood_surfaces_low_confidence():
     assert result.status == "dissent"
     assert "low-confidence:decision" in result.gaps
     assert result.requires_human is True
+
+
+def test_mood_surfaces_invalid_confidence():
+    result = assess([MoodSignal("decision", "unknown", "observer", 1.5)])
+    assert result.status == "dissent"
+    assert "invalid-confidence:decision" in result.gaps
+    assert result.requires_human is True
