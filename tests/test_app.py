@@ -68,7 +68,7 @@ class OceanicOSAppTests(unittest.TestCase):
     def test_workflow_endpoints(self):
         response = self.client.post(
             "/workflows",
-            data=json.dumps({"name": "review", "steps": [{"name": "collect", "type": "tool"}]}),
+            data=json.dumps({"name": "review", "steps": [{"name": "echo", "type": "tool"}]}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
@@ -81,6 +81,52 @@ class OceanicOSAppTests(unittest.TestCase):
         executed = self.client.post("/workflows/review/execute")
         self.assertEqual(executed.status_code, 200)
         self.assertTrue(executed.get_json()["executed"])
+
+    def test_workflow_list_endpoint(self):
+        self.client.post(
+            "/workflows",
+            data=json.dumps({"name": "wf-a", "steps": [{"name": "s", "type": "reason"}]}),
+            content_type="application/json",
+        )
+        listing = self.client.get("/workflows")
+        self.assertEqual(listing.status_code, 200)
+        names = {w["name"] for w in listing.get_json()}
+        self.assertIn("wf-a", names)
+
+    def test_workflow_unknown_returns_404(self):
+        self.assertEqual(self.client.get("/workflows/ghost").status_code, 404)
+        self.assertEqual(self.client.post("/workflows/ghost/execute").status_code, 404)
+        self.assertEqual(self.client.post("/workflows/ghost/reset").status_code, 404)
+
+    def test_workflow_status_and_reset(self):
+        self.client.post(
+            "/workflows",
+            data=json.dumps({"name": "resettable", "steps": [{"name": "a", "type": "reason"}]}),
+            content_type="application/json",
+        )
+        wf = self.client.get("/workflows/resettable").get_json()
+        self.assertEqual(wf["status"], "created")
+
+        self.client.post("/workflows/resettable/execute")
+        wf = self.client.get("/workflows/resettable").get_json()
+        self.assertEqual(wf["status"], "completed")
+        self.assertEqual(wf["runs"], 1)
+
+        self.client.post("/workflows/resettable/reset")
+        wf = self.client.get("/workflows/resettable").get_json()
+        self.assertEqual(wf["status"], "created")
+
+    def test_workflow_execute_runs_echo_tool(self):
+        self.client.post(
+            "/workflows",
+            data=json.dumps({"name": "echo-flow", "steps": [{"name": "echo", "type": "tool"}]}),
+            content_type="application/json",
+        )
+        result = self.client.post("/workflows/echo-flow/execute")
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(result.get_json()["executed"])
+        steps = result.get_json()["steps"]
+        self.assertEqual(steps[0]["status"], "completed")
 
     def test_planner_endpoints(self):
         response = self.client.post(

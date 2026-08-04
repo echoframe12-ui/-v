@@ -133,14 +133,36 @@ def create_workflow():
     return jsonify(workflow_engine.create_workflow(name, steps))
 
 
+@app.route("/workflows", methods=["GET"])
+def list_workflows():
+    return jsonify(workflow_engine.list_workflows())
+
+
 @app.route("/workflows/<name>", methods=["GET"])
 def get_workflow(name: str):
-    return jsonify(workflow_engine.get_workflow(name))
+    try:
+        return jsonify(workflow_engine.get_workflow(name))
+    except KeyError:
+        return jsonify({"error": f"Unknown workflow: {name}"}), 404
 
 
 @app.route("/workflows/<name>/execute", methods=["POST"])
 def execute_workflow(name: str):
-    return jsonify(workflow_engine.execute_workflow(name))
+    def _tool_runner(tool_name: str, params: dict):
+        return service.invoke_tool(tool_name, params)
+
+    try:
+        return jsonify(workflow_engine.execute_workflow(name, tool_runner=_tool_runner))
+    except KeyError:
+        return jsonify({"error": f"Unknown workflow: {name}"}), 404
+
+
+@app.route("/workflows/<name>/reset", methods=["POST"])
+def reset_workflow(name: str):
+    try:
+        return jsonify(workflow_engine.reset_workflow(name))
+    except KeyError:
+        return jsonify({"error": f"Unknown workflow: {name}"}), 404
 
 
 @app.route("/plans/execute", methods=["POST"])
