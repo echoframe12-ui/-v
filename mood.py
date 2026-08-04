@@ -25,22 +25,26 @@ class MoodAssessment:
 
 
 def assess(signals: list[MoodSignal]) -> MoodAssessment:
-    """Surface disagreement or low confidence instead of hiding it."""
+    """Surface failed, conflicting, or low-confidence evidence instead of hiding it."""
     gaps: list[str] = []
+    by_name: dict[str, list[Any]] = {}
+
     for signal in signals:
         if not 0.0 <= signal.confidence <= 1.0:
             gaps.append(f"invalid-confidence:{signal.name}")
         elif signal.confidence < 0.5:
             gaps.append(f"low-confidence:{signal.name}")
 
-    by_name: dict[str, list[Any]] = {}
-    for signal in signals:
         by_name.setdefault(signal.name, []).append(signal.value)
+        if signal.value is False:
+            gaps.append(f"failed:{signal.name}")
 
     for name, values in by_name.items():
         if len(set(map(repr, values))) > 1:
             gaps.append(f"dissent:{name}")
 
+    # Preserve deterministic output for downstream evidence and tests.
+    gaps = list(dict.fromkeys(gaps))
     route = "human" if gaps else "continue"
     return MoodAssessment(
         status="dissent" if gaps else "clear",
