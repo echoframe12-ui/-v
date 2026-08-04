@@ -149,11 +149,12 @@ The event ledger is the durable record of all transitions. REST API is wired.
 - Full-stack verification convergence: unified Ω∞v contract stack gate and runtime verification into MOOD
 - **CLI MOOD verification**: `oceanicos verify` (MOOD-gated) and `oceanicos gate` (contract stack only)
 - **Workflow MOOD gate**: `mood_gate` step type in WorkflowEngine — workflows can gate on MOOD results
-- **892 total tests — all passing** (clean DB required: `Remove-Item oceanicos.db` before test suite)
+- **MOOD Event Ledger Integration**: `record_to_ledger` emits `mood.clear` / `mood.dissent` events into hash-chained `oceanic_lifecycle.jsonl`
+- **894 total tests — all passing** (clean DB required: `Remove-Item oceanicos.db` before test suite)
 
 ### Next Action
 
-> **Wire the event ledger into MOOD assessments** — each MOOD assessment (clear/dissent) should emit a lifecycle event into `oceanic_lifecycle.jsonl`, creating an auditable trail of every verification decision.
+> **Dead Code Clean-Up & Roadmap Advancement** — Remove deprecated `ModelRouter` in `models.py` and finalize Phase 5 charter roadmap items.
 
 ## Verification Discipline
 
