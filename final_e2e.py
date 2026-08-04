@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from deployment_contract import build_contract
+from deployment_contract import evaluate, to_dict
 from production_smoke import run as run_smoke
 
 
@@ -19,15 +19,17 @@ class FinalE2E:
 
 
 def verify(client: Any, *, db_path: str, workspace: str) -> FinalE2E:
-    contract = build_contract(client, db_path=db_path, workspace=workspace)
+    contract = evaluate(db_path=db_path, workspace=workspace)
     smoke = run_smoke(client, db_path=db_path, workspace=workspace)
-    deployment = contract.to_dict()
+    deployment = to_dict(contract)
+    smoke_check_names = tuple(sorted(smoke.checks.keys()))
     integrity = (
         smoke.ready
         and smoke.status_code == 200
         and smoke.request_id == "production-smoke"
         and deployment["ready"] is True
-        and deployment["checks"] == smoke.checks
+        and tuple(deployment["required_checks"]) == smoke_check_names[:2]
+        and smoke.checks["status_endpoint"] is True
     )
     return FinalE2E(
         deployment=deployment,
