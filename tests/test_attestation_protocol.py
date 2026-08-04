@@ -81,3 +81,29 @@ def test_round_trip_is_canonical_and_json_serializable():
     first = json.loads(_signed().to_json())
     second = json.loads(json.dumps(first, sort_keys=True, separators=(",", ":")))
     assert first == second
+
+
+def test_evolution_creates_new_signed_attestation_with_immutable_parent():
+    parent = _signed()
+    parent_snapshot = json.loads(parent.to_json())
+    child = _signed(parent_attestation_id=parent.document["attestation_id"])
+
+    assert child.document["attestation_id"] != parent.document["attestation_id"]
+    assert child.document["parent_attestation_id"] == parent.document["attestation_id"]
+    assert json.loads(parent.to_json()) == parent_snapshot
+    assert verify_attestation(parent_snapshot, expected_schema_digest="sha256:schema-v01")["valid"] is True
+    assert verify_attestation(json.loads(child.to_json()), expected_schema_digest="sha256:schema-v01")["valid"] is True
+
+
+def test_drift_recompile_state_is_signed_into_new_lineage():
+    parent = _signed()
+    child = _signed(
+        parent_attestation_id=parent.document["attestation_id"],
+        drift_state="detected",
+        recompile_state="recompiled",
+    )
+
+    assert child.document["parent_attestation_id"] == parent.document["attestation_id"]
+    assert child.document["drift_state"] == "detected"
+    assert child.document["recompile_state"] == "recompiled"
+    assert verify_attestation(json.loads(child.to_json()), expected_schema_digest="sha256:schema-v01")["valid"] is True
