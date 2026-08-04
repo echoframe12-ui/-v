@@ -6,6 +6,8 @@ def test_final_e2e_integrity(tmp_path, monkeypatch):
     db_path = tmp_path / "final.db"
     workspace = tmp_path / "workspace"
     monkeypatch.setattr(service, "_db_path", db_path)
+    service._init_db()
+
     with app.test_client() as client:
         result = verify(client, db_path=str(db_path), workspace=str(workspace))
 
