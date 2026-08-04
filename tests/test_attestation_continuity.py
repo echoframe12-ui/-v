@@ -4,21 +4,26 @@ import pytest
 
 from attestation_continuity import transition_from_attestation
 from attestation_protocol import attest_cycle, generate_keypair
-from oceanic_cycle import CycleEvent, Decision, VerificationStatus
+from oceanic_cycle import CycleEvent, DecisionRoute, VerificationStatus
 
 
 def _attestation():
     private, _ = generate_keypair()
     event = CycleEvent(
         cycle_id="cycle-continuity",
+        state_id="state-1",
         contract_id="contract-1",
-        verification=VerificationStatus.VERIFIED,
-        decision=Decision.CONTINUE,
-        confidence=1.0,
-        provenance_hash="sha256:provenance",
+        observer="test-observer",
         evidence=("evidence:1",),
+        verification=VerificationStatus.VERIFIED,
+        confidence=1.0,
         dissent=(),
+        decision=DecisionRoute.ACCEPT,
+        action="continue",
+        consequence="verified",
         next_state="continue_observing",
+        provenance_hash="sha256:provenance",
+        timestamp="2026-08-04T00:00:00+00:00",
     )
     return attest_cycle(
         event,
