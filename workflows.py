@@ -109,7 +109,30 @@ class WorkflowEngine:
                 "type": step_type,
                 "index": i,
             }
-            if step_type == "tool" and tool_runner is not None:
+            if step_type == "mood_gate":
+                from full_stack_e2e_gate import check as check_contract_stack
+                from mood import MoodSignal, assess
+
+                gate = check_contract_stack()
+                contract_ok = bool(gate.get("ok"))
+                edge_ok = bool(gate.get("edge_rejects_empty_attestation"))
+                signals = [
+                    MoodSignal("contract_stack_healthy", contract_ok, "full-stack-e2e-gate"),
+                    MoodSignal("edge_attestation_enforced", edge_ok, "full-stack-e2e-gate"),
+                ]
+                assessment = assess(signals)
+                result["output"] = {
+                    "mood": assessment.status,
+                    "route": assessment.route,
+                    "gaps": list(assessment.gaps),
+                }
+                if assessment.status == "clear":
+                    result["status"] = "completed"
+                else:
+                    result["status"] = "failed"
+                    result["error"] = f"MOOD dissent: {', '.join(assessment.gaps)}"
+                    failed = True
+            elif step_type == "tool" and tool_runner is not None:
                 try:
                     output = tool_runner(step_name, step.get("params", {}))
                     result["status"] = "completed"

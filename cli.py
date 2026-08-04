@@ -5,6 +5,8 @@ import json
 import sys
 from typing import Any
 
+from full_stack_e2e_gate import check as check_contract_stack
+from mood import MoodSignal, assess
 from server import OceanicOSService
 from universal_builder import UniversalBuilder
 from workflows import WorkflowEngine
@@ -46,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
     wf_exec.add_argument("name", type=str, help="Workflow name")
 
     wf_list = wf_sub.add_parser("list", help="List all workflows")
+
+    # verify (MOOD gate)
+    subparsers.add_parser("verify", help="Run full-stack MOOD verification gate")
+
+    # gate (contract stack only)
+    subparsers.add_parser("gate", help="Run Ω∞v contract stack check")
 
     # plugins
     subparsers.add_parser("plugins", help="List registered plugins")
@@ -116,6 +124,29 @@ def main(args: list[str] | None = None) -> int:
         else:
             wf_parser = parser._subparsers._group_actions[0]._name_parser_map["workflow"]
             wf_parser.print_help()
+
+    elif parsed.command == "verify":
+        gate_result = check_contract_stack()
+        contract_ok = bool(gate_result.get("ok"))
+        edge_ok = bool(gate_result.get("edge_rejects_empty_attestation"))
+        signals = [
+            MoodSignal("contract_stack_healthy", contract_ok, "full-stack-e2e-gate"),
+            MoodSignal("edge_attestation_enforced", edge_ok, "full-stack-e2e-gate"),
+        ]
+        assessment = assess(signals)
+        output = {
+            "mood": assessment.status,
+            "route": assessment.route,
+            "gaps": list(assessment.gaps),
+            "contract_stack": gate_result,
+        }
+        print(json.dumps(output, indent=2))
+        return 0 if assessment.status == "clear" else 1
+
+    elif parsed.command == "gate":
+        gate_result = check_contract_stack()
+        print(json.dumps(gate_result, indent=2))
+        return 0 if gate_result.get("ok") else 1
 
     elif parsed.command == "plugins":
         print(json.dumps(service.list_plugins(), indent=2))
