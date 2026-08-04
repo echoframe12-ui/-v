@@ -158,6 +158,40 @@ def attest_cycle(
     return SignedAttestation(document=document, signature=_b64(signature), public_key=_b64(public_key))
 
 
+def evolve_attestation(
+    parent: SignedAttestation,
+    event: CycleEvent,
+    *,
+    prompt: str,
+    final_output: str,
+    schema_digest: str,
+    private_key: bytes,
+    expected_parent_schema_digest: str | None = None,
+    **kwargs: Any,
+) -> SignedAttestation:
+    """Create a new signed attestation whose lineage explicitly names ``parent``.
+
+    The parent is independently verified before evolution. The parent object is
+    never mutated; evolution always produces a new signed record.
+    """
+    parent_report = verify_attestation(
+        parent.to_dict(),
+        expected_schema_digest=expected_parent_schema_digest,
+    )
+    if not parent_report["valid"]:
+        raise ValueError("cannot evolve an invalid parent attestation")
+
+    return attest_cycle(
+        event,
+        prompt=prompt,
+        final_output=final_output,
+        schema_digest=schema_digest,
+        private_key=private_key,
+        parent_attestation_id=parent.document["attestation_id"],
+        **kwargs,
+    )
+
+
 def verify_attestation(attestation: dict[str, Any], *, expected_schema_digest: str | None = None) -> dict[str, Any]:
     """Independently verify signature, schema identity, and output integrity."""
     try:
@@ -186,6 +220,7 @@ def verify_attestation(attestation: dict[str, Any], *, expected_schema_digest: s
         "schema_valid": schema_valid,
         "schema_digest_valid": schema_digest_valid,
         "attestation_id": document.get("attestation_id"),
+        "parent_attestation_id": document.get("parent_attestation_id"),
         "next_state": document.get("next_state"),
         "reason": None if valid else "signed_record_integrity_failed",
     }
