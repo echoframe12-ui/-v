@@ -1,8 +1,6 @@
-from dataclasses import replace
-
 from oceanic_attestation import Attestation, Authorization, RuntimeState
 from oceanic_observer import Observation
-from omega_evolution_lineage import propose_with_lineage, to_dict
+from omega_evolution_lineage import LINEAGE_SCHEMA, propose_with_lineage, to_dict
 
 
 def attestation() -> Attestation:
@@ -30,12 +28,7 @@ def observation(status: str = "deviated") -> Observation:
 
 
 def test_evolution_preserves_attestation_lineage_and_proposal():
-    lineage = propose_with_lineage(
-        attestation(),
-        observation(),
-        parent_attestation_id="att-1",
-        lineage_depth=1,
-    )
+    lineage = propose_with_lineage(attestation(), observation(), parent_attestation_id="att-1", lineage_depth=1)
     assert lineage.attestation_id == "att-2"
     assert lineage.parent_attestation_id == "att-1"
     assert lineage.lineage_depth == 1
@@ -44,8 +37,7 @@ def test_evolution_preserves_attestation_lineage_and_proposal():
 
 
 def test_matched_observation_has_no_evolution_proposal():
-    lineage = propose_with_lineage(attestation(), observation("matched"))
-    assert lineage.proposal is None
+    assert propose_with_lineage(attestation(), observation("matched")).proposal is None
 
 
 def test_parent_requires_positive_depth():
@@ -57,9 +49,9 @@ def test_parent_requires_positive_depth():
         raise AssertionError("expected ValueError")
 
 
-def test_serialization_is_explicit_and_stable_shape():
+def test_serialization_uses_canonical_schema():
     payload = to_dict(propose_with_lineage(attestation(), observation()))
-    assert payload["schema"] == "omega.evolution-lineage/v1"
+    assert payload["schema"] == LINEAGE_SCHEMA == "omega.evolution-lineage/v1"
     assert payload["attestation_id"] == "att-2"
     assert payload["runtime_digest"] == "sha256:runtime"
     assert payload["lineage_depth"] == 0
