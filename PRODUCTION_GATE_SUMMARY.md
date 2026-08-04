@@ -1,0 +1,1 @@
+Production smoke uses the existing Flask and readiness boundaries. No alternate health subsystem is introduced.
