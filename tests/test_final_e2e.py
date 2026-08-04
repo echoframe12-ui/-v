@@ -17,3 +17,5 @@ def test_final_e2e_integrity(tmp_path, monkeypatch):
     assert result.request_id == "production-smoke"
     assert result.deployment["ready"] is True
     assert result.deployment["required_checks"] == ["db", "workspace"]
+    assert result.contract_stack is not None
+    assert result.contract_stack["ok"] is True

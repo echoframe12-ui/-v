@@ -32,6 +32,8 @@ def assess(signals: list[MoodSignal]) -> MoodAssessment:
             gaps.append(f"invalid-confidence:{signal.name}")
         elif signal.confidence < 0.5:
             gaps.append(f"low-confidence:{signal.name}")
+        elif signal.value is False:
+            gaps.append(f"failed:{signal.name}")
 
     by_name: dict[str, list[Any]] = {}
     for signal in signals:
