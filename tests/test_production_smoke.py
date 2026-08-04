@@ -8,6 +8,7 @@ def test_production_smoke_exercises_readiness_and_status_endpoint(tmp_path, monk
     db_path = tmp_path / "smoke.db"
     workspace = tmp_path / "workspace"
     monkeypatch.setattr(service, "_db_path", Path(db_path))
+    service._init_db()
     with app.test_client() as client:
         result = run(client, db_path=str(db_path), workspace=str(workspace))
 
