@@ -4,7 +4,6 @@ import pytest
 
 from attestation_continuity import transition_from_attestation
 from attestation_protocol import attest_cycle, generate_keypair
-from continuous_becoming import State
 from oceanic_cycle import CycleEvent, Decision, VerificationStatus
 
 
@@ -19,7 +18,7 @@ def _attestation():
         provenance_hash="sha256:provenance",
         evidence=("evidence:1",),
         dissent=(),
-        next_state=State.ACT.value,
+        next_state="continue_observing",
     )
     return attest_cycle(
         event,
@@ -30,7 +29,7 @@ def _attestation():
     )
 
 
-def test_verified_attestation_drives_existing_continuous_becoming_model():
+def test_verified_attestation_drives_existing_observer_model():
     attestation = _attestation()
 
     transition = transition_from_attestation(
@@ -39,9 +38,12 @@ def test_verified_attestation_drives_existing_continuous_becoming_model():
     )
 
     assert transition.parent_attestation_id == attestation.document["attestation_id"]
-    assert transition.observation.state is State.ACT
-    assert transition.observation.value == "verified output"
-    assert transition.observation.provenance == attestation.document["attestation_id"]
+    assert transition.observation.state == "attested"
+    assert transition.observation.verification_status == "verified"
+    assert transition.observation.attested is True
+    assert transition.observation.next_state == "continue_observing"
+    assert attestation.document["attestation_id"] in transition.observation.provenance
+    assert transition.observation.verification_hash.startswith("sha256:")
 
 
 def test_invalid_attestation_cannot_bypass_verification():
