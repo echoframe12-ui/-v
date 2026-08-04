@@ -28,7 +28,9 @@ def assess(signals: list[MoodSignal]) -> MoodAssessment:
     """Surface disagreement or low confidence instead of hiding it."""
     gaps: list[str] = []
     for signal in signals:
-        if signal.confidence < 0.5:
+        if not 0.0 <= signal.confidence <= 1.0:
+            gaps.append(f"invalid-confidence:{signal.name}")
+        elif signal.confidence < 0.5:
             gaps.append(f"low-confidence:{signal.name}")
 
     by_name: dict[str, list[Any]] = {}
