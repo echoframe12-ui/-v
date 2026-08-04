@@ -48,3 +48,33 @@ def assess_full_stack(
         record_to_ledger(assessment, ledger, entity_id="full-stack-e2e")
     return assessment
 
+
+def assess_perspectives(
+    perspectives: list[Any],
+    *,
+    ledger: Any | None = None,
+    entity_id: str = "perspective-panel",
+) -> MoodAssessment:
+    """Turn a list of Perspective objects into an explicit MOOD assessment.
+
+    Evaluates cross-provider responses, surfacing any dissent or low confidence
+    as explicit gaps routing to human review.
+    """
+    signals = []
+    for p in perspectives:
+        conf = getattr(p, "confidence", None)
+        confidence = conf if conf is not None else 1.0
+        signals.append(
+            MoodSignal(
+                name="response",
+                value=getattr(p, "response", None),
+                source=getattr(p, "provider", "unknown"),
+                confidence=confidence,
+            )
+        )
+    assessment = assess(signals)
+    if ledger is not None:
+        record_to_ledger(assessment, ledger, entity_id=entity_id)
+    return assessment
+
+
