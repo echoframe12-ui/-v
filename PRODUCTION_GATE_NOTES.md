@@ -1,0 +1,1 @@
+Production smoke contract is intentionally small: reuse existing readiness and Flask status endpoint rather than creating a second health subsystem.
