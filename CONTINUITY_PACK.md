@@ -102,6 +102,16 @@ The event ledger is the durable record of all transitions. REST API is wired.
 
 ## Current Handoff State
 
+### Completed (2026-08-04)
+
+- Unified Ω∞v contract stack gate (`full_stack_e2e_gate.py`) and runtime verification (`final_e2e.py`) into single authoritative MOOD decision layer (`mood_integrity.py`).
+- Added `assess_full_stack(client, db_path, workspace)` as the single end-to-end entry point that evaluates both contract health and runtime observation, returning a unified `MoodAssessment`.
+- Emitted `contract_stack_healthy` and `edge_attestation_enforced` signals to MOOD alongside runtime observation signals.
+- Updated `mood.py` `assess()` to route boolean signal failures (`signal.value is False`) to `human` with `status="dissent"`.
+- Updated test suites: `test_mood_integrity.py`, `test_final_e2e.py`, `test_mood.py`.
+- **872 tests passing, 26 subtests passing** (clean DB required).
+- Commit: `9c26fcb` — pushed to `origin/main`.
+
 ### Completed (2026-08-01, evening session)
 
 - Replaced `ModelRouter` with `PerspectiveRegistry` across the full stack: `universal_builder.py`, `app.py`, all `/models` endpoints.
