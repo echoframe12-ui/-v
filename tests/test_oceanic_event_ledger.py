@@ -1,23 +1,18 @@
-"""Tests for the Oceanic Event Ledger — append-only, hash-chained record.
-
-Covers:
-  - Append and hash-chain verification (2-event)
-  - Tampering detection (content modification)
-  - Corrupt sequence break detection
-  - Corrupt previous_digest mismatch detection
-  - Empty ledger chain is intact
-  - Single entry chain is intact
-  - Event fields are populated correctly
-  - History is returned in sequence order as tuple
-  - Empty ledger history is empty
-  - Continuous chain across multiple appends
-"""
+"""Tests for the Oceanic Event Ledger — append-only, hash-chained record."""
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from oceanic_event_ledger import EventLedger, LedgerEvent
+
+
+class _SignedAttestationStub:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def to_dict(self):
+        return dict(self._payload)
 
 
 class OceanicEventLedgerTests(unittest.TestCase):
@@ -32,6 +27,39 @@ class OceanicEventLedgerTests(unittest.TestCase):
             self.assertEqual(second.sequence, 2)
             self.assertEqual(second.previous_digest, first.event_digest)
             self.assertTrue(ledger.verify_chain())
+
+    def test_signed_attestation_is_persisted_and_retrievable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = EventLedger(Path(directory) / "events.jsonl")
+            payload = {
+                "attestation_id": "att_signed_1",
+                "schema": "oceanic.attestation/v0.1",
+                "signature": "signed-by-ed25519",
+                "verifier": {"algorithm": "Ed25519", "key_id": "sha256:key"},
+                "output_hash": "sha256:output",
+            }
+            event = ledger.append_attestation(_SignedAttestationStub(payload))
+
+            self.assertEqual(event.event_type, "ATTESTATION_ISSUED")
+            self.assertEqual(event.entity_id, "att_signed_1")
+            self.assertEqual(ledger.get_attestation("att_signed_1"), payload)
+            self.assertTrue(ledger.verify_chain())
+
+    def test_tampering_with_signed_attestation_is_detected_by_ledger_chain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.jsonl"
+            ledger = EventLedger(path)
+            ledger.append_attestation(_SignedAttestationStub({
+                "attestation_id": "att_signed_1",
+                "signature": "signed-by-ed25519",
+                "verifier": {"algorithm": "Ed25519", "key_id": "sha256:key"},
+            }))
+            lines = path.read_text(encoding="utf-8").splitlines()
+            data = json.loads(lines[0])
+            data["payload"]["signature"] = "tampered"
+            path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+
+            self.assertFalse(ledger.verify_chain())
 
     def test_tampering_is_detected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -86,12 +114,12 @@ class OceanicEventLedgerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "events.jsonl"
             ledger = EventLedger(path)
-            e1 = ledger.append("ev1", "id1", {})
-            e2 = ledger.append("ev2", "id2", {})
+            ledger.append("ev1", "id1", {})
+            ledger.append("ev2", "id2", {})
 
             lines = path.read_text(encoding="utf-8").splitlines()
             data2 = json.loads(lines[1])
-            data2["sequence"] = 99  # break sequence number
+            data2["sequence"] = 99
             path.write_text(lines[0] + "\n" + json.dumps(data2) + "\n", encoding="utf-8")
             self.assertFalse(ledger.verify_chain())
 
@@ -118,5 +146,3 @@ class OceanicEventLedgerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
