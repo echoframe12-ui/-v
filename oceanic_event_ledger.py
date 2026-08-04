@@ -97,6 +97,29 @@ class EventLedger:
                 return dict(event.payload)
         return None
 
+    def get_attestation_lineage(self, attestation_id: str) -> tuple[dict[str, Any], ...]:
+        """Return an attestation's stored parent chain from root to child.
+
+        Missing parents and cycles are rejected instead of silently truncating
+        provenance. The ledger itself remains append-only; this method only
+        resolves already-recorded lineage.
+        """
+        lineage: list[dict[str, Any]] = []
+        current_id: str | None = attestation_id
+        seen: set[str] = set()
+        while current_id:
+            if current_id in seen:
+                raise ValueError("attestation lineage contains a cycle")
+            seen.add(current_id)
+            current = self.get_attestation(current_id)
+            if current is None:
+                raise ValueError(f"missing parent attestation: {current_id}")
+            lineage.append(current)
+            parent_id = current.get("parent_attestation_id")
+            current_id = parent_id if isinstance(parent_id, str) and parent_id else None
+        lineage.reverse()
+        return tuple(lineage)
+
     def verify_chain(self) -> bool:
         events = self._events()
         previous_digest = None
