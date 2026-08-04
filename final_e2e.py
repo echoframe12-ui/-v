@@ -22,13 +22,15 @@ def verify(client: Any, *, db_path: str, workspace: str) -> FinalE2E:
     contract = evaluate(db_path=db_path, workspace=workspace)
     smoke = run_smoke(client, db_path=db_path, workspace=workspace)
     deployment = to_dict(contract)
-    smoke_check_names = tuple(sorted(smoke.checks.keys()))
+    required_checks = set(deployment["required_checks"])
+    smoke_check_names = set(smoke.checks)
     integrity = (
         smoke.ready
         and smoke.status_code == 200
         and smoke.request_id == "production-smoke"
         and deployment["ready"] is True
-        and tuple(deployment["required_checks"]) == smoke_check_names[:2]
+        and required_checks.issubset(smoke_check_names)
+        and all(smoke.checks[name] for name in required_checks)
         and smoke.checks["status_endpoint"] is True
     )
     return FinalE2E(
