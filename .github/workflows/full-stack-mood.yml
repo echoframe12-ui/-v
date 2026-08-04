@@ -26,6 +26,14 @@ jobs:
       - name: Full test suite
         run: make test
       - name: Live full-stack MOOD verification
-        run: make verify
+        run: |
+          make verify 2>&1 | tee mood-verification.txt
       - name: Build container
         run: make docker-build
+      - name: Publish verification proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mood-verification-proof
+          path: mood-verification.txt
+          if-no-files-found: warn
