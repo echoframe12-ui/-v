@@ -27,12 +27,14 @@ def event(status: VerificationStatus) -> CycleEvent:
     )
 
 
+def signer() -> OmegaSigner:
+    return OmegaSigner.generate_for_provisioning()
+
+
 def test_bridge_emits_independently_verifiable_omega_attestation():
-    private, _ = OmegaSigner.generate()
-    signer = OmegaSigner(private)
     result = attest_verified_cycle(
         event(VerificationStatus.VERIFIED),
-        signer=signer,
+        signer=signer(),
         prompt="input",
         final_output="output",
         schema_digest="sha256:schema-v1",
@@ -47,8 +49,6 @@ def test_bridge_emits_independently_verifiable_omega_attestation():
 
 
 def test_bridge_refuses_non_verified_cycles():
-    private, _ = OmegaSigner.generate()
-    signer = OmegaSigner(private)
     for status in (
         VerificationStatus.PARTIALLY_VERIFIED,
         VerificationStatus.DISSENT,
@@ -57,7 +57,7 @@ def test_bridge_refuses_non_verified_cycles():
         with pytest.raises(ValueError, match="requires VERIFIED cycle status"):
             attest_verified_cycle(
                 event(status),
-                signer=signer,
+                signer=signer(),
                 prompt="input",
                 final_output="output",
                 schema_digest="sha256:schema-v1",
