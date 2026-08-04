@@ -1,0 +1,1 @@
+Scope: executable readiness + Flask status smoke only; existing runtime behavior remains authoritative.
