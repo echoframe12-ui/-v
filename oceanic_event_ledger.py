@@ -4,6 +4,8 @@ from __future__ import annotations
 
 The ledger records lifecycle evidence without rewriting historical events.
 It is intentionally dependency-free and can be persisted as JSON Lines.
+Signed attestations are stored as immutable payloads; cryptographic
+verification remains the responsibility of the attestation protocol.
 """
 
 import hashlib
@@ -70,6 +72,21 @@ class EventLedger:
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(asdict(event), sort_keys=True, default=str) + "\n")
         return event
+
+    def append_attestation(self, attestation: Any) -> LedgerEvent:
+        """Append one signed attestation without changing the attestation itself."""
+        payload = attestation.to_dict()
+        attestation_id = payload.get("attestation_id")
+        if not isinstance(attestation_id, str) or not attestation_id:
+            raise ValueError("signed attestation must contain attestation_id")
+        return self.append("ATTESTATION_ISSUED", attestation_id, payload)
+
+    def get_attestation(self, attestation_id: str) -> dict[str, Any] | None:
+        """Return the stored signed attestation payload, if present."""
+        for event in self._events():
+            if event.event_type == "ATTESTATION_ISSUED" and event.entity_id == attestation_id:
+                return dict(event.payload)
+        return None
 
     def verify_chain(self) -> bool:
         events = self._events()
