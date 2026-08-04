@@ -2,9 +2,12 @@ name: Full Stack MOOD
 
 on:
   push:
-    branches: [main, 'feat/**']
+    branches:
+      - main
+      - 'feat/**'
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   verify:
