@@ -9,6 +9,8 @@ from oceanic_attestation import Attestation
 from oceanic_evolution import EvolutionProposal, propose_evolution
 from oceanic_observer import Observation
 
+LINEAGE_SCHEMA = "omega.evolution-lineage/v1"
+
 
 @dataclass(frozen=True)
 class EvolutionLineage:
@@ -46,7 +48,7 @@ def propose_with_lineage(
 
 def to_dict(lineage: EvolutionLineage) -> dict[str, Any]:
     return {
-        "schema": "omega.evolution-lineage/v1",
+        "schema": LINEAGE_SCHEMA,
         "attestation_id": lineage.attestation_id,
         "parent_attestation_id": lineage.parent_attestation_id,
         "runtime_digest": lineage.runtime_digest,
