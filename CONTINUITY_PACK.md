@@ -151,7 +151,8 @@ The event ledger is the durable record of all transitions. REST API is wired.
 - **Workflow MOOD gate**: `mood_gate` step type in WorkflowEngine — workflows can gate on MOOD results
 - **MOOD Event Ledger Integration**: `record_to_ledger` emits `mood.clear` / `mood.dissent` events into hash-chained `oceanic_lifecycle.jsonl`
 - **ModelRouter Deprecation & Roadmap Alignment**: Marked `ModelRouter` in `models.py` as deprecated in favor of `PerspectiveRegistry` and finalized Phase 5 in `ROADMAP.md`
-- **894 total tests — all passing** (clean DB required: `Remove-Item oceanicos.db` before test suite)
+- **Multi-Provider Perspective MOOD Bridge**: Implemented `assess_perspectives` in `mood_integrity.py` to route multi-provider perspective evaluations directly into MOOD dissent routing
+- **896 total tests — all passing** (clean DB required: `Remove-Item oceanicos.db` before test suite)
 
 ### Next Action
 
