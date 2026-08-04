@@ -4,9 +4,12 @@
 
 ## Purpose
 
-This protocol binds one existing Oceanic verification cycle to a portable,
-cryptographically signed evidence record. It does not replace the existing
-Oceanic IR, Observer, lifecycle, or event ledger.
+This protocol adds a cryptographic envelope around one existing Oceanic
+verification cycle. The repository already owns the domain-level attestation
+model in `oceanic_attestation.py`; this module does not replace it.
+
+It does not replace the existing Oceanic IR, Observer, lifecycle, or event
+ledger.
 
 ## Trust boundaries
 
@@ -15,13 +18,13 @@ Oceanic IR, Observer, lifecycle, or event ledger.
 `Attestation` records that result, its provenance, dissent, hashes, status,
 and lineage at a point in time.
 
-`Signature` cryptographically authorizes the canonical attestation bytes.
+`Signature` cryptographically authorizes the canonical bytes of that record.
 
 These are intentionally separate.
 
 ## Signed record
 
-The v0.1 document contains:
+The v0.1 signed document contains:
 
 - schema and schema version
 - attestation/request/session identifiers
@@ -39,6 +42,7 @@ The v0.1 document contains:
 - drift/recompile state
 - next state
 - schema digest
+- signer algorithm and public-key-derived key ID
 
 The outer envelope carries the Ed25519 signature and public key.
 
@@ -55,16 +59,20 @@ verifier reconstructs.
 
 ## Independent verification
 
-A recipient needs only the exported JSON document and its embedded Ed25519
-public key. `verify_attestation()`:
+A recipient needs the exported JSON document and its embedded Ed25519 public
+key. `verify_attestation()`:
 
 1. reconstructs the unsigned document;
 2. verifies the Ed25519 signature;
-3. checks the declared schema;
-4. recomputes the final-output SHA-256 binding;
-5. returns the next state without trusting the producer's process.
+3. verifies the public-key-derived signer identity;
+4. checks the declared schema and version;
+5. recomputes the final-output SHA-256 binding;
+6. optionally compares the signed schema digest against an independently
+   resolved schema digest;
+7. returns `valid=false` if any of those integrity checks fail.
 
-A modified signed field invalidates the signature.
+A modified signed field invalidates the signature. A valid signature alone is
+not treated as sufficient: schema and output integrity must also hold.
 
 ## Key handling
 
@@ -72,11 +80,14 @@ Private keys are deliberately not stored in the repository or in an
 attestation. `generate_keypair()` only provisions raw local key material.
 Production key custody belongs outside the application data model.
 
+The embedded public key is not a trust anchor by itself; a deployment must
+establish which verification identities/keys it trusts.
+
 ## Revocation
 
-An issued attestation is immutable. Revocation must be represented by a new
-signed event referencing the original attestation; the original record is not
-rewritten.
+The protocol reserves revocation as an append-only signed event referencing
+the original attestation. **Revocation event creation is not implemented in
+v0.1 yet.** No issued attestation is silently rewritten or deleted.
 
 ## First vertical slice
 
@@ -87,12 +98,15 @@ Observation
   ↓
 Existing Oceanic Cycle verification
   ↓
-Signed Attestation
+Domain attestation
   ↓
-Independent Ed25519 verification
+Cryptographic Ed25519 envelope
+  ↓
+Independent verification
   ↓
 Next state
 ```
 
-This is the minimum executable heartbeat. Storage, VaaS exposure, richer CVI
-breakdowns, quorum semantics, and Ω∞v Edge can attach to this boundary later.
+This is the minimum executable heartbeat. Persistent ledger integration,
+VaaS exposure, richer CVI breakdowns, quorum semantics, revocation events,
+and Ω∞v Edge attach to this boundary later.
