@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-"""Ω∞v Attestation Protocol v0.1.
+"""Ω∞v cryptographic attestation envelope v0.1.
 
-Verification, attestation, and cryptographic authorization remain distinct.
-The protocol signs canonical JSON and never persists private signing material.
+The repository already has a domain-level ``oceanic_attestation.Attestation``.
+This module is the cryptographic envelope around an existing cycle result; it
+does not replace or redefine the domain attestation model.
 """
 
 import base64
@@ -55,7 +56,9 @@ def _unb64(value: str) -> bytes:
 
 
 @dataclass(frozen=True)
-class Attestation:
+class SignedAttestation:
+    """Cryptographic envelope for one already-verified cycle result."""
+
     document: dict[str, Any]
     signature: str
     public_key: str
@@ -66,7 +69,11 @@ class Attestation:
     def to_dict(self) -> dict[str, Any]:
         result = dict(self.document)
         result["signature"] = self.signature
-        result["verifier"] = {"algorithm": "Ed25519", "public_key": self.public_key}
+        result["verifier"] = {
+            "algorithm": "Ed25519",
+            "key_id": self.document["signer"]["key_id"],
+            "public_key": self.public_key,
+        }
         return result
 
     def to_json(self) -> str:
@@ -91,13 +98,14 @@ def attest_cycle(
     parent_attestation_id: str | None = None,
     drift_state: str = "none",
     recompile_state: str = "not_required",
-) -> Attestation:
-    """Create and sign one v0.1 attestation from an existing CycleEvent."""
+) -> SignedAttestation:
+    """Create and sign one v0.1 envelope from an existing CycleEvent."""
     if len(private_key) != 32:
         raise ValueError("Ed25519 private key must contain exactly 32 raw bytes")
 
     key = Ed25519PrivateKey.from_private_bytes(private_key)
     public_key = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    key_id = sha256_hex(public_key)
     now = datetime.now(timezone.utc).isoformat()
     status_map = {
         VerificationStatus.VERIFIED: "VERIFIED",
@@ -144,27 +152,40 @@ def attest_cycle(
         "recompile_state": recompile_state,
         "next_state": event.next_state,
         "schema_digest": schema_digest,
+        "signer": {"algorithm": "Ed25519", "key_id": key_id},
     }
     signature = key.sign(_canonical_json(document))
-    return Attestation(document=document, signature=_b64(signature), public_key=_b64(public_key))
+    return SignedAttestation(document=document, signature=_b64(signature), public_key=_b64(public_key))
 
 
-def verify_attestation(attestation: dict[str, Any]) -> dict[str, Any]:
-    """Independently verify an attestation using only its document and public key."""
+def verify_attestation(attestation: dict[str, Any], *, expected_schema_digest: str | None = None) -> dict[str, Any]:
+    """Independently verify signature, schema identity, and output integrity."""
     try:
         signature = _unb64(attestation["signature"])
-        public_key = _unb64(attestation["verifier"]["public_key"])
+        verifier = attestation["verifier"]
+        public_key = _unb64(verifier["public_key"])
         document = {k: v for k, v in attestation.items() if k not in {"signature", "verifier"}}
         Ed25519PublicKey.from_public_bytes(public_key).verify(signature, _canonical_json(document))
     except (KeyError, ValueError, TypeError, InvalidSignature):
         return {"valid": False, "reason": "signature_invalid"}
 
+    expected_key_id = sha256_hex(public_key)
+    signer = document.get("signer", {})
+    key_id_valid = signer.get("key_id") == expected_key_id and verifier.get("key_id") == expected_key_id
+    schema_valid = document.get("schema") == SCHEMA and document.get("schema_version") == SCHEMA_VERSION
+    schema_digest_valid = expected_schema_digest is None or document.get("schema_digest") == expected_schema_digest
     final_output = document.get("final_output")
+    output_intact = isinstance(final_output, str) and document.get("output_hash") == sha256_hex(final_output)
+
+    valid = key_id_valid and schema_valid and schema_digest_valid and output_intact
     return {
-        "valid": True,
+        "valid": valid,
         "signature_valid": True,
-        "output_intact": isinstance(final_output, str) and document.get("output_hash") == sha256_hex(final_output),
-        "schema_valid": document.get("schema") == SCHEMA,
+        "key_id_valid": key_id_valid,
+        "output_intact": output_intact,
+        "schema_valid": schema_valid,
+        "schema_digest_valid": schema_digest_valid,
         "attestation_id": document.get("attestation_id"),
         "next_state": document.get("next_state"),
+        "reason": None if valid else "signed_record_integrity_failed",
     }
