@@ -5,9 +5,14 @@ from omega_becoming_lineage import advance_with_lineage, to_dict
 def observation():
     return Observation(
         state="authorized",
-        next_state="proposal_ready",
+        verification_status="verified",
+        authorization_level="act",
+        confidence=1.0,
+        dissent=False,
         provenance=("attestation-1",),
         verification_hash="hash-1",
+        attested=True,
+        next_state="act_then_observe",
     )
 
 
