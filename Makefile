@@ -2,16 +2,17 @@
 IMAGE ?= oceanicos
 PORT ?= 5000
 
-.PHONY: help install test run build docker-build docker-run stack verify-ledger boot clean
+.PHONY: help install test run build docker-build docker-run stack verify verify-ledger boot clean
 
 help:
 	@echo "OceanicOS full-stack targets:"
 	@echo "  make install       install runtime + test deps"
 	@echo "  make test          run the full test suite"
+	@echo "  make verify        run live E2E + MOOD verification"
 	@echo "  make run           run the app under gunicorn (PORT=$(PORT))"
-	@echo "  make docker-build  build the container image ($(IMAGE))"
+	@echo "  make build         build the container image"
 	@echo "  make docker-run    run the container image"
-	@echo "  make stack         test -> docker-build -> docker-run (the full stack)"
+	@echo "  make stack         test -> verify -> docker-build"
 	@echo "  make verify-ledger verify an exported ledger offline (BUNDLE=path [KEY=secret])"
 	@echo "  make boot          instantiate the stack from boot/init.v1 (the invocation)"
 	@echo "  make doctor        check readiness, verify the ledger, print stats (offline)"
@@ -25,6 +26,9 @@ test:
 	OCEANICOS_WORKSPACE=$${OCEANICOS_WORKSPACE:-/tmp/oceanicos-test-ws} \
 	python -m pytest -q
 
+verify:
+	python verify_stack.py
+
 run:
 	gunicorn --bind 0.0.0.0:$(PORT) --workers 2 wsgi:app
 
@@ -36,20 +40,15 @@ docker-build:
 docker-run:
 	docker run --rm -p $(PORT):$(PORT) -e PORT=$(PORT) $(IMAGE)
 
-# The full stack: verify, containerize, launch.
-stack: test docker-build
-	@echo "Stack built. Launch with: make docker-run"
+stack: test verify docker-build
+	@echo "Full stack verified and built. Launch with: make docker-run"
 
-# Verify an exported attestation ledger offline — the ground truth without the system.
-# Usage: make verify-ledger BUNDLE=bundle.json [KEY=your-signing-key]
 verify-ledger:
 	python verify_ledger.py $(if $(KEY),--key $(KEY),) "$(BUNDLE)"
 
-# Operator CLI: check the ledger and dependencies offline, no server needed.
 doctor:
 	python oceanic_os.py ready && python oceanic_os.py verify && python oceanic_os.py stats
 
-# The invocation: boot the stack from the ratified manifest.
 boot:
 	python oceanic_os.py --boot boot/init.v1 --state stateless --exit 0
 
