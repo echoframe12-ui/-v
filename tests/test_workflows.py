@@ -5,7 +5,17 @@ from workflows import WorkflowEngine
 
 class WorkflowEngineTests(unittest.TestCase):
     def setUp(self):
-        self.engine = WorkflowEngine()
+        import tempfile
+        self.tmp = tempfile.NamedTemporaryFile(delete=False)
+        self.tmp.close()
+        self.engine = WorkflowEngine(db_path=self.tmp.name)
+
+    def tearDown(self):
+        import os
+        try:
+            os.remove(self.tmp.name)
+        except Exception:
+            pass
 
     def test_create_and_execute_workflow(self):
         self.engine.create_workflow(

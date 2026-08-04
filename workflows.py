@@ -1,12 +1,62 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 
 class WorkflowEngine:
-    def __init__(self) -> None:
-        self._workflows: dict[str, dict[str, Any]] = {}
+    def __init__(self, db_path: str | None = None) -> None:
+        self._db_path = Path(db_path or "oceanicos.db")
+        self._init_db()
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS workflows (
+                    name TEXT PRIMARY KEY,
+                    steps TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    runs TEXT NOT NULL
+                )
+                """
+            )
+
+    def _load(self, name: str) -> dict[str, Any]:
+        with sqlite3.connect(self._db_path) as conn:
+            row = conn.execute(
+                "SELECT name, steps, status, created_at, runs FROM workflows WHERE name = ?",
+                (name,),
+            ).fetchone()
+        if not row:
+            raise KeyError(f"Unknown workflow: {name}")
+        return {
+            "name": row[0],
+            "steps": json.loads(row[1]),
+            "status": row[2],
+            "created_at": row[3],
+            "runs": json.loads(row[4]),
+        }
+
+    def _save(self, wf: dict[str, Any]) -> None:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO workflows (name, steps, status, created_at, runs)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    wf["name"],
+                    json.dumps(wf["steps"]),
+                    wf["status"],
+                    wf["created_at"],
+                    json.dumps(wf["runs"]),
+                ),
+            )
 
     def create_workflow(self, name: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
         workflow = {
@@ -16,19 +66,26 @@ class WorkflowEngine:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "runs": [],
         }
-        self._workflows[name] = workflow
+        self._save(workflow)
         return {"created": True, "name": name, "steps": len(steps)}
 
     def get_workflow(self, name: str) -> dict[str, Any]:
-        if name not in self._workflows:
-            raise KeyError(f"Unknown workflow: {name}")
-        wf = self._workflows[name]
+        wf = self._load(name)
         return {"name": name, "steps": wf["steps"], "status": wf["status"], "runs": len(wf["runs"])}
 
     def list_workflows(self) -> list[dict[str, Any]]:
+        with sqlite3.connect(self._db_path) as conn:
+            rows = conn.execute(
+                "SELECT name, steps, status, runs FROM workflows ORDER BY created_at DESC"
+            ).fetchall()
         return [
-            {"name": wf["name"], "steps": len(wf["steps"]), "status": wf["status"], "runs": len(wf["runs"])}
-            for wf in self._workflows.values()
+            {
+                "name": row[0],
+                "steps": len(json.loads(row[1])),
+                "status": row[2],
+                "runs": len(json.loads(row[3])),
+            }
+            for row in rows
         ]
 
     def execute_workflow(
@@ -36,18 +93,10 @@ class WorkflowEngine:
         name: str,
         tool_runner: Any | None = None,
     ) -> dict[str, Any]:
-        """Execute a workflow step by step.
-
-        If a `tool_runner` callable is provided, each step of type ``"tool"``
-        is dispatched through it as ``tool_runner(step_name, {})``.  Steps of
-        other types are recorded as completed without side-effects.
-
-        Returns the execution report with per-step results and overall status.
-        """
-        if name not in self._workflows:
-            raise KeyError(f"Unknown workflow: {name}")
-        wf = self._workflows[name]
+        wf = self._load(name)
         wf["status"] = "running"
+        self._save(wf)
+
         started_at = datetime.now(timezone.utc).isoformat()
         step_results: list[dict[str, Any]] = []
         failed = False
@@ -88,6 +137,7 @@ class WorkflowEngine:
             "steps_total": len(wf["steps"]),
         }
         wf["runs"].append(run_record)
+        self._save(wf)
 
         return {
             "executed": overall == "completed",
@@ -98,9 +148,7 @@ class WorkflowEngine:
         }
 
     def reset_workflow(self, name: str) -> dict[str, Any]:
-        """Reset a workflow's status back to created so it can be re-executed."""
-        if name not in self._workflows:
-            raise KeyError(f"Unknown workflow: {name}")
-        wf = self._workflows[name]
+        wf = self._load(name)
         wf["status"] = "created"
+        self._save(wf)
         return {"name": name, "status": "created"}
