@@ -111,7 +111,8 @@ class WorkflowEngine:
             }
             if step_type == "mood_gate":
                 from full_stack_e2e_gate import check as check_contract_stack
-                from mood import MoodSignal, assess
+                from mood import MoodSignal, assess, record_to_ledger
+                from oceanic_event_ledger import EventLedger
 
                 gate = check_contract_stack()
                 contract_ok = bool(gate.get("ok"))
@@ -121,6 +122,8 @@ class WorkflowEngine:
                     MoodSignal("edge_attestation_enforced", edge_ok, "full-stack-e2e-gate"),
                 ]
                 assessment = assess(signals)
+                ledger = EventLedger("oceanic_lifecycle.jsonl")
+                record_to_ledger(assessment, ledger, entity_id=f"workflow-gate:{name}")
                 result["output"] = {
                     "mood": assessment.status,
                     "route": assessment.route,

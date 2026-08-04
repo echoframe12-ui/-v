@@ -3,7 +3,7 @@
 from typing import Any
 
 from full_stack_e2e_gate import check as check_contract_stack
-from mood import MoodAssessment, MoodSignal, assess
+from mood import MoodAssessment, MoodSignal, assess, record_to_ledger
 
 
 def assess_e2e(result: Any) -> MoodAssessment:
@@ -27,9 +27,24 @@ def assess_e2e(result: Any) -> MoodAssessment:
     return assess(signals)
 
 
-def assess_full_stack(client: Any, *, db_path: str, workspace: str) -> MoodAssessment:
-    """Run full E2E verification and return the unified MOOD assessment."""
+def assess_full_stack(
+    client: Any,
+    *,
+    db_path: str,
+    workspace: str,
+    ledger: Any | None = None,
+) -> MoodAssessment:
+    """Run full E2E verification and return the unified MOOD assessment.
+
+    When *ledger* is provided (an ``EventLedger`` instance), the assessment
+    result is automatically recorded as a ``mood.clear`` or ``mood.dissent``
+    event.
+    """
     from final_e2e import verify
 
     e2e_result = verify(client, db_path=db_path, workspace=workspace)
-    return assess_e2e(e2e_result)
+    assessment = assess_e2e(e2e_result)
+    if ledger is not None:
+        record_to_ledger(assessment, ledger, entity_id="full-stack-e2e")
+    return assessment
+

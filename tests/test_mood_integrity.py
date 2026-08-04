@@ -55,3 +55,20 @@ def test_assess_full_stack_integration():
     assessment = assess_full_stack(client, db_path="oceanicos.db", workspace="workspace")
     assert assessment.status in ("clear", "dissent")
     assert hasattr(assessment, "route")
+
+
+def test_assess_full_stack_with_ledger(tmp_path):
+    from app import app
+    from oceanic_event_ledger import EventLedger
+
+    ledger_file = tmp_path / "ledger.jsonl"
+    ledger = EventLedger(ledger_file)
+    client = app.test_client()
+    assessment = assess_full_stack(client, db_path="oceanicos.db", workspace="workspace", ledger=ledger)
+    assert assessment.status in ("clear", "dissent")
+    history = ledger.history()
+    assert len(history) == 1
+    assert history[0].event_type == f"mood.{assessment.status}"
+    assert history[0].entity_id == "full-stack-e2e"
+    assert ledger.verify_chain() is True
+

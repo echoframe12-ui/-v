@@ -1,5 +1,7 @@
 """MOOD: operational observation and dissent layer for OceanicOS."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -50,3 +52,35 @@ def assess(signals: list[MoodSignal]) -> MoodAssessment:
         evidence=tuple(signals),
         route=route,
     )
+
+
+def _assessment_payload(assessment: MoodAssessment) -> dict[str, Any]:
+    """Build a ledger-safe payload from a MoodAssessment."""
+    return {
+        "status": assessment.status,
+        "route": assessment.route,
+        "gaps": list(assessment.gaps),
+        "signal_count": len(assessment.evidence),
+        "signals": [
+            {"name": s.name, "value": s.value, "source": s.source, "confidence": s.confidence}
+            for s in assessment.evidence
+        ],
+    }
+
+
+def record_to_ledger(
+    assessment: MoodAssessment,
+    ledger: Any,
+    *,
+    entity_id: str = "mood-assessment",
+) -> Any:
+    """Emit a mood.clear or mood.dissent event into the EventLedger.
+
+    Returns the LedgerEvent created. The ``ledger`` must expose an
+    ``append(event_type, entity_id, payload)`` method compatible with
+    :class:`oceanic_event_ledger.EventLedger`.
+    """
+    event_type = f"mood.{assessment.status}"
+    payload = _assessment_payload(assessment)
+    return ledger.append(event_type, entity_id, payload)
+

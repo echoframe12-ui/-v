@@ -6,7 +6,8 @@ import sys
 from typing import Any
 
 from full_stack_e2e_gate import check as check_contract_stack
-from mood import MoodSignal, assess
+from mood import MoodSignal, assess, record_to_ledger
+from oceanic_event_ledger import EventLedger
 from server import OceanicOSService
 from universal_builder import UniversalBuilder
 from workflows import WorkflowEngine
@@ -134,6 +135,8 @@ def main(args: list[str] | None = None) -> int:
             MoodSignal("edge_attestation_enforced", edge_ok, "full-stack-e2e-gate"),
         ]
         assessment = assess(signals)
+        ledger = EventLedger("oceanic_lifecycle.jsonl")
+        record_to_ledger(assessment, ledger, entity_id="cli-verify")
         output = {
             "mood": assessment.status,
             "route": assessment.route,
