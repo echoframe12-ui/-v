@@ -4,6 +4,8 @@ from __future__ import annotations
 
 The ledger records lifecycle evidence without rewriting historical events.
 It is intentionally dependency-free and can be persisted as JSON Lines.
+Signed attestations are stored as immutable payloads; cryptographic
+verification remains the responsibility of the attestation protocol.
 """
 
 import hashlib
@@ -70,6 +72,53 @@ class EventLedger:
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(asdict(event), sort_keys=True, default=str) + "\n")
         return event
+
+    def append_attestation(self, attestation: Any) -> LedgerEvent:
+        """Append one signed attestation without changing the attestation itself.
+
+        The ledger checks only the envelope shape. Cryptographic validity is
+        independently established by ``attestation_protocol.verify_attestation``.
+        """
+        payload = attestation.to_dict()
+        attestation_id = payload.get("attestation_id")
+        if not isinstance(attestation_id, str) or not attestation_id:
+            raise ValueError("signed attestation must contain attestation_id")
+        if not isinstance(payload.get("signature"), str) or not payload["signature"]:
+            raise ValueError("signed attestation must contain signature")
+        verifier = payload.get("verifier")
+        if not isinstance(verifier, dict) or verifier.get("algorithm") != "Ed25519":
+            raise ValueError("signed attestation must contain an Ed25519 verifier")
+        return self.append("ATTESTATION_ISSUED", attestation_id, payload)
+
+    def get_attestation(self, attestation_id: str) -> dict[str, Any] | None:
+        """Return the stored signed attestation payload, if present."""
+        for event in self._events():
+            if event.event_type == "ATTESTATION_ISSUED" and event.entity_id == attestation_id:
+                return dict(event.payload)
+        return None
+
+    def get_attestation_lineage(self, attestation_id: str) -> tuple[dict[str, Any], ...]:
+        """Return an attestation's stored parent chain from root to child.
+
+        Missing parents and cycles are rejected instead of silently truncating
+        provenance. The ledger itself remains append-only; this method only
+        resolves already-recorded lineage.
+        """
+        lineage: list[dict[str, Any]] = []
+        current_id: str | None = attestation_id
+        seen: set[str] = set()
+        while current_id:
+            if current_id in seen:
+                raise ValueError("attestation lineage contains a cycle")
+            seen.add(current_id)
+            current = self.get_attestation(current_id)
+            if current is None:
+                raise ValueError(f"missing parent attestation: {current_id}")
+            lineage.append(current)
+            parent_id = current.get("parent_attestation_id")
+            current_id = parent_id if isinstance(parent_id, str) and parent_id else None
+        lineage.reverse()
+        return tuple(lineage)
 
     def verify_chain(self) -> bool:
         events = self._events()
