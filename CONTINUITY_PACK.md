@@ -142,24 +142,18 @@ The event ledger is the durable record of all transitions. REST API is wired.
 - Perspectives engine: `perspectives.py` + `compare_perspectives` wired into `/oceanic/perspectives`
 - **511 total tests — all passing** (clean DB required: delete `oceanicos.db` between runs)
 
-### Current State
+### Completed (2026-08-04)
 
-- All lifecycle pipeline stages wired end-to-end.
-- `PerspectiveRegistry` is the sole orchestrator — `ModelRouter` in `models.py` is now dead code.
-- Multi-provider adapters (local, Claude, OpenAI, rules-engine) all registered and tested.
-- Drift audit records lifecycle deviations as non-intact events.
-- Cross-model dissent surfaces through the perspectives comparison layer.
-- `oceanic_lifecycle.jsonl`: separate JSONL ledger for Oceanic events.
-
-### Known Gaps
-
-- `oceanicos.db` is shared across all test modules — absolute-count tests (e.g. `stats["total"] == 2`) fail if run on a DB with prior state. Fix: run `Remove-Item oceanicos.db` before test suite.
-- `models.py` contains the legacy `ModelRouter` class — dead code now that `PerspectiveRegistry` has fully replaced it. Candidate for removal or deprecation notice.
-- OpenAPI spec auto-generated from live routes (`/openapi.json`) — covers all VaaS endpoints automatically.
+- CLI runner (`cli.py`) with subcommands: `health`, `plan`, `run`, `tool`, `workflow`, `plugins`
+- WorkflowEngine (`workflows.py`) upgraded to SQLite persistence
+- Full-stack verification convergence: unified Ω∞v contract stack gate and runtime verification into MOOD
+- **CLI MOOD verification**: `oceanicos verify` (MOOD-gated) and `oceanicos gate` (contract stack only)
+- **Workflow MOOD gate**: `mood_gate` step type in WorkflowEngine — workflows can gate on MOOD results
+- **892 total tests — all passing** (clean DB required: `Remove-Item oceanicos.db` before test suite)
 
 ### Next Action
 
-> **Remove dead `ModelRouter` code** from `models.py` and update any remaining references, then update ROADMAP.md to reflect Phase 5 completion.
+> **Wire the event ledger into MOOD assessments** — each MOOD assessment (clear/dissent) should emit a lifecycle event into `oceanic_lifecycle.jsonl`, creating an auditable trail of every verification decision.
 
 ## Verification Discipline
 
