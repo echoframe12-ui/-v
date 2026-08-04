@@ -1,0 +1,24 @@
+name: Full Stack MOOD
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Full test suite
+        run: make test
+      - name: Live full-stack MOOD verification
+        run: make verify
+      - name: Build container
+        run: make docker-build
