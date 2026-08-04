@@ -12,8 +12,15 @@ class OceanicOSServiceTests(unittest.TestCase):
         self.service = OceanicOSService(self.temp_db.name)
 
     def tearDown(self):
-        if os.path.exists(self.temp_db.name):
-            os.remove(self.temp_db.name)
+        try:
+            if os.path.exists(self.temp_db.name):
+                os.remove(self.temp_db.name)
+        except PermissionError:
+            # On Windows, SQLite may hold a brief file lock after the last
+            # connection context-manager exits.  The file will be cleaned up
+            # by the OS when the process exits; swallowing this here avoids
+            # spurious tearDown failures that mask real test results.
+            pass
 
     def test_health_reports_ok(self):
         self.assertEqual(self.service.health()["status"], "ok")
