@@ -2,7 +2,7 @@
 IMAGE ?= oceanicos
 PORT ?= 5000
 
-.PHONY: help install test run build docker-build docker-run stack verify-ledger boot clean
+.PHONY: help install test run build docker-build docker-run compose-up compose-down stack verify-ledger boot doctor clean
 
 help:
 	@echo "OceanicOS full-stack targets:"
@@ -11,6 +11,8 @@ help:
 	@echo "  make run           run the app under gunicorn (PORT=$(PORT))"
 	@echo "  make docker-build  build the container image ($(IMAGE))"
 	@echo "  make docker-run    run the container image"
+	@echo "  make compose-up    bring up full-stack docker-compose (API + Frontend + Postgres)"
+	@echo "  make compose-down  tear down docker-compose"
 	@echo "  make stack         test -> docker-build -> docker-run (the full stack)"
 	@echo "  make verify-ledger verify an exported ledger offline (BUNDLE=path [KEY=secret])"
 	@echo "  make boot          instantiate the stack from boot/init.v1 (the invocation)"
@@ -36,12 +38,17 @@ docker-build:
 docker-run:
 	docker run --rm -p $(PORT):$(PORT) -e PORT=$(PORT) $(IMAGE)
 
+compose-up:
+	docker-compose up -d --build
+
+compose-down:
+	docker-compose down -v
+
 # The full stack: verify, containerize, launch.
 stack: test docker-build
-	@echo "Stack built. Launch with: make docker-run"
+	@echo "Stack built. Launch with: make docker-run or make compose-up"
 
 # Verify an exported attestation ledger offline — the ground truth without the system.
-# Usage: make verify-ledger BUNDLE=bundle.json [KEY=your-signing-key]
 verify-ledger:
 	python verify_ledger.py $(if $(KEY),--key $(KEY),) "$(BUNDLE)"
 
@@ -55,4 +62,4 @@ boot:
 
 clean:
 	rm -f oceanicos.db *.sqlite3
-	rm -rf workspace __pycache__ tests/__pycache__ .pytest_cache
+	rm -rf workspace __pycache__ tests/__pycache__ .pytest_cache frontend/dist frontend/node_modules

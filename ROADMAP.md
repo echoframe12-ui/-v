@@ -38,6 +38,14 @@ This roadmap captures the first practical steps for turning the charter into an 
 
 - [x] Extend MOOD dissent routing for multi-agent autonomous consensus loops (`multi_agent_consensus.py`, `/oceanic/consensus`).
 - [x] Expand verification contracts for continuous cross-repository state handoffs (`A → B → C → A → ∞`) (`cross_repo_handoff.py`, `/oceanic/handoff/*`).
-- [x] Maintain local-first append-only ledger auditability across token-limited environments (`oceanic_event_ledger.py`, `ContinuousBecomingEngine`).
+## Phase 7: Full-Stack Expansion
+
+- [x] React/TS/Vite single page app scaffold (`frontend/`, `ConsolePage.tsx`, `BecomingPage.tsx`, `ConsensusPage.tsx`).
+- [x] Shared contract type definitions and typed VaaS API client (`oceanic.ts`, `client.ts`).
+- [x] PostgreSQL/Prisma persistence tier schema (`prisma/schema.prisma`).
+- [x] Full-stack orchestration via Docker Compose (`docker-compose.yml`, `frontend/Dockerfile`).
+- [x] Automated frontend unit & E2E verification suites (`Vitest`, `Playwright`).
+- [x] GitHub Actions CI integration with multi-tier test matrix (`ci.yml`, `full-stack-mood.yml`).
+
 
 

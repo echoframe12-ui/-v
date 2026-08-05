@@ -1,0 +1,73 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model ConsensusEvaluation {
+  id                String   @id @default(uuid())
+  prompt            String
+  iterations        Int
+  converged         Boolean
+  finalDissentScore Float
+  mood              String
+  currentState      String
+  nextState         String
+  verificationHash  String
+  createdAt         DateTime @default(now())
+
+  @@map("consensus_evaluations")
+}
+
+model HandoffPacketRecord {
+  packetId       String   @id
+  sourceRepo     String
+  targetRepo     String
+  sequence       Int
+  stateHash      String
+  ledgerHeadHash String
+  payloadJson    String
+  timestamp      DateTime
+  attestationId  String?
+  createdAt      DateTime @default(now())
+
+  @@map("handoff_packets")
+}
+
+model EventLedgerRecord {
+  sequence       Int      @id @default(autoincrement())
+  eventType      String
+  entityId       String
+  timestamp      DateTime
+  payloadJson    String
+  previousDigest String?
+  eventDigest    String   @unique
+  createdAt      DateTime @default(now())
+
+  @@map("event_ledger_records")
+}
+
+model AuthUser {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  publicKey    String
+  role         String        @default("reviewer")
+  createdAt    DateTime      @default(now())
+  authSessions AuthSession[]
+
+  @@map("auth_users")
+}
+
+model AuthSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("auth_sessions")
+}

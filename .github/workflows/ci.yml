@@ -13,10 +13,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python dependencies
         run: pip install -r requirements.txt
-      - name: Run tests
+      - name: Run Python tests
         run: python -m pytest -q
         env:
           OCEANICOS_DB: /tmp/oceanicos-test.db
           OCEANICOS_WORKSPACE: /tmp/oceanicos-workspace
+      - name: Install Frontend dependencies
+        run: npm ci
+        working-directory: ./frontend
+      - name: Build Frontend
+        run: npm run build
+        working-directory: ./frontend
+      - name: Run Vitest
+        run: npm run test
+        working-directory: ./frontend
