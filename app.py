@@ -2188,6 +2188,58 @@ def oceanic_handoff_verify_cycle():
     return jsonify(result), status_code
 
 
+# ============================================================
+# Phase 8: Autonomous Verification & Production Attestation API
+# ============================================================
+
+from oceanic_attestation_engine import AutonomousAttestationEngine
+
+_autonomous_attestation_engine = AutonomousAttestationEngine()
+
+
+@app.route("/oceanic/attestation/cycle", methods=["POST"])
+def oceanic_attestation_cycle():
+    """Trigger an immediate autonomous verification cycle across all ledgers and posture layers."""
+    proof = _autonomous_attestation_engine.run_verification_cycle()
+    return jsonify(proof)
+
+
+@app.route("/oceanic/attestation/daemon/status", methods=["GET"])
+def oceanic_attestation_daemon_status():
+    """Return current autonomous attestation daemon status."""
+    return jsonify(_autonomous_attestation_engine.get_daemon_status())
+
+
+@app.route("/oceanic/attestation/daemon/start", methods=["POST"])
+def oceanic_attestation_daemon_start():
+    """Start the autonomous attestation daemon background loop."""
+    payload = request.get_json(silent=True) or {}
+    interval = int(payload.get("interval", 30))
+    _autonomous_attestation_engine.start_daemon(interval_seconds=interval)
+    return jsonify({"status": "started", "interval": interval})
+
+
+@app.route("/oceanic/attestation/daemon/stop", methods=["POST"])
+def oceanic_attestation_daemon_stop():
+    """Stop the autonomous attestation daemon background loop."""
+    _autonomous_attestation_engine.stop_daemon()
+    return jsonify({"status": "stopped"})
+
+
+@app.route("/oceanic/attestation/verify_proof", methods=["POST"])
+def oceanic_attestation_verify_proof():
+    """Verify an attestation proof packet offline using HMAC secret key.
+
+    Body: ``proof`` (dict), optional ``key`` (str).
+    """
+    payload = request.get_json(silent=True) or {}
+    proof_packet = payload.get("proof") or payload
+    key = payload.get("key")
+
+    result = _autonomous_attestation_engine.verify_proof(proof_packet, key=key)
+    status_code = 200 if result.get("valid") else 400
+    return jsonify(result), status_code
+
 
 def main() -> None:
     host = os.getenv("HOST", "0.0.0.0")
@@ -2198,3 +2250,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

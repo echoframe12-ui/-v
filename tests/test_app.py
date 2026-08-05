@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import unittest
 from unittest.mock import patch
 
@@ -9,8 +10,31 @@ from app import app
 
 
 class OceanicOSAppTests(unittest.TestCase):
+    # Tables that accumulate transient state and must be reset between tests.
+    _TRANSIENT_TABLES = [
+        "users",
+        "attestations",
+        "attestation_checkpoints",
+        "usage",
+        "held_reviews",
+        "drift_audits",
+        "cvi_snapshots",
+        "evolution_snapshots",
+        "consensus_evaluations",
+        "supersessions",
+    ]
+
     def setUp(self):
         self.client = app.test_client()
+        # Wipe all transient tables before each test for full isolation.
+        # Also reset ROWID auto-increment sequences so id-based assertions are stable.
+        db_path = str(app_module.auth_registry._db_path)
+        with sqlite3.connect(db_path) as conn:
+            for table in self._TRANSIENT_TABLES:
+                conn.execute(f"DELETE FROM {table}")  # noqa: S608
+                conn.execute(
+                    "DELETE FROM sqlite_sequence WHERE name = ?", (table,)
+                )
 
     def test_health_endpoint(self):
         response = self.client.get("/health")

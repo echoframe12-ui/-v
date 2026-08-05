@@ -1,3 +1,4 @@
+import sqlite3
 import unittest
 from unittest.mock import patch
 
@@ -20,8 +21,30 @@ def _flask_opener(method, path, headers, json):
 
 
 class OceanicOSClientTests(unittest.TestCase):
+    _TRANSIENT_TABLES = [
+        "users",
+        "attestations",
+        "attestation_checkpoints",
+        "usage",
+        "held_reviews",
+        "drift_audits",
+        "cvi_snapshots",
+        "evolution_snapshots",
+        "consensus_evaluations",
+        "supersessions",
+    ]
+
     def setUp(self):
         self.kai = OceanicOSClient(opener=_flask_opener)
+        # Wipe all transient tables before each test for full isolation.
+        # Also reset ROWID sequences so id-based assertions are stable.
+        db_path = str(app_module.auth_registry._db_path)
+        with sqlite3.connect(db_path) as conn:
+            for table in self._TRANSIENT_TABLES:
+                conn.execute(f"DELETE FROM {table}")  # noqa: S608
+                conn.execute(
+                    "DELETE FROM sqlite_sequence WHERE name = ?", (table,)
+                )
 
     def test_public_reads(self):
         self.assertEqual(self.kai.health()["status"], "ok")

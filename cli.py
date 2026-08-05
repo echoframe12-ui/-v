@@ -80,6 +80,17 @@ def build_parser() -> argparse.ArgumentParser:
     # plugins
     subparsers.add_parser("plugins", help="List registered plugins")
 
+    # attest-cycle
+    subparsers.add_parser("attest-cycle", help="Run immediate autonomous attestation verification cycle")
+
+    # attest-daemon
+    attest_daemon_parser = subparsers.add_parser("attest-daemon", help="Manage autonomous attestation daemon")
+    attest_daemon_parser.add_argument("--interval", "-i", type=int, default=30, help="Audit interval in seconds")
+
+    # attest-verify
+    attest_verify_parser = subparsers.add_parser("attest-verify", help="Verify proof packet file offline")
+    attest_verify_parser.add_argument("file", type=str, help="Path to proof packet JSON file")
+
     return parser
 
 
@@ -213,6 +224,35 @@ def main(args: list[str] | None = None) -> int:
             handoff_parser = parser._subparsers._group_actions[0]._name_parser_map["handoff"]
             handoff_parser.print_help()
             return 1
+
+    elif parsed.command == "attest-cycle":
+        from oceanic_attestation_engine import AutonomousAttestationEngine
+        engine = AutonomousAttestationEngine()
+        proof = engine.run_verification_cycle()
+        print(json.dumps(proof, indent=2))
+        return 0 if proof.get("data", {}).get("status") == "clear" else 1
+
+    elif parsed.command == "attest-daemon":
+        from oceanic_attestation_engine import AutonomousAttestationEngine
+        engine = AutonomousAttestationEngine()
+        print(f"Starting Autonomous Attestation Daemon (interval={parsed.interval}s)... Press Ctrl+C to stop.")
+        engine.start_daemon(interval_seconds=parsed.interval)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            engine.stop_daemon()
+            print("\nDaemon stopped.")
+        return 0
+
+    elif parsed.command == "attest-verify":
+        from oceanic_attestation_engine import AutonomousAttestationEngine
+        engine = AutonomousAttestationEngine()
+        with open(parsed.file, "r", encoding="utf-8") as f:
+            proof = json.load(f)
+        result = engine.verify_proof(proof)
+        print(json.dumps(result, indent=2))
+        return 0 if result.get("valid") else 1
 
     elif parsed.command == "plugins":
         print(json.dumps(service.list_plugins(), indent=2))
