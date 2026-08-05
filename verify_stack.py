@@ -14,6 +14,7 @@ from mood import MoodAssessment, MoodSignal, assess
 class VerificationResult:
     checks: dict[str, bool]
     mood: MoodAssessment
+    contract_error: str | None = None
 
     @property
     def verified(self) -> bool:
@@ -45,10 +46,12 @@ def verify_live() -> VerificationResult:
     from full_stack_e2e_gate import assert_healthy
 
     contract_ok = True
+    contract_error: str | None = None
     try:
         assert_healthy()
-    except Exception:
+    except Exception as exc:
         contract_ok = False
+        contract_error = f"{type(exc).__name__}: {exc}"
 
     with tempfile.TemporaryDirectory(prefix="oceanicos-verify-") as root:
         root_path = Path(root)
@@ -69,7 +72,11 @@ def verify_live() -> VerificationResult:
                 "request_id": e2e.request_id == "production-smoke",
                 "integrity": bool(e2e.integrity),
             }
-            return VerificationResult(checks=checks, mood=_assess(checks))
+            return VerificationResult(
+                checks=checks,
+                mood=_assess(checks),
+                contract_error=contract_error,
+            )
         finally:
             service._db_path = previous_db
 
@@ -84,6 +91,8 @@ def main() -> int:
     print(f"VERIFIED           {'YES' if result.verified else 'NO'}")
     if result.mood.gaps:
         print("GAPS               " + ", ".join(result.mood.gaps))
+    if result.contract_error:
+        print("CONTRACT_ERROR     " + result.contract_error)
     return 0 if result.verified else 1
 
 
