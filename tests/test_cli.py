@@ -132,6 +132,32 @@ class CLITests(unittest.TestCase):
             self.assertFalse(result["executed"])
             self.assertEqual(mood_step["status"], "failed")
 
+    def test_consensus_command(self):
+        buf = StringIO()
+        with patch("sys.stdout", buf):
+            code = main(["consensus", "--prompt", "Verify invariants", "--max-iterations", "2"])
+        output = json.loads(buf.getvalue())
+        self.assertEqual(output["prompt"], "Verify invariants")
+        self.assertIn("converged", output)
+        self.assertIn("mood", output)
+
+    def test_handoff_commands(self):
+        buf = StringIO()
+        with patch("sys.stdout", buf):
+            code_exp = main(["handoff", "export", "--source", "repo_A", "--target", "repo_B", "--payload", '{"step":1}'])
+        self.assertEqual(code_exp, 0)
+        packet_dict = json.loads(buf.getvalue())
+        self.assertEqual(packet_dict["source_repo"], "repo_A")
+        self.assertEqual(packet_dict["target_repo"], "repo_B")
+
+        buf_imp = StringIO()
+        with patch("sys.stdout", buf_imp):
+            code_imp = main(["handoff", "import", json.dumps(packet_dict)])
+        self.assertEqual(code_imp, 0)
+        imp_res = json.loads(buf_imp.getvalue())
+        self.assertTrue(imp_res["valid"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

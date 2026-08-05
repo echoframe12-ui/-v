@@ -90,6 +90,59 @@ class ContinuousBecomingEngine:
             verification_hash=verification_hash,
         )
 
+    def advance_consensus(
+        self,
+        result: Any,
+        *,
+        current_state: str = "consensus_evaluating",
+    ) -> BecomingTransition:
+        """Translate a MultiAgentConsensusResult into a BecomingTransition."""
+        converged = getattr(result, "converged", False)
+        score = getattr(result, "final_dissent_score", 0.0)
+        prompt = getattr(result, "prompt", "unknown")
+
+        if converged:
+            next_state = "consensus_reached"
+            action = "continue_becoming"
+            reason = f"Consensus converged (dissent score: {score})"
+        else:
+            next_state = "await_human"
+            action = "await_human"
+            reason = f"Consensus failed to converge (dissent score: {score}); human review required"
+
+        return BecomingTransition(
+            current_state=current_state,
+            next_state=next_state,
+            action=action,
+            loop=True,
+            reason=reason,
+            provenance=("multi_agent_consensus", prompt[:32]),
+            verification_hash=getattr(result, "assessment", None).assessment_id if getattr(result, "assessment", None) else "",
+        )
+
+    def advance_handoff(
+        self,
+        packet: Any,
+        *,
+        current_state: str = "handoff_pending",
+    ) -> BecomingTransition:
+        """Translate a HandoffPacket into a BecomingTransition."""
+        packet_id = getattr(packet, "packet_id", "unknown")
+        source = getattr(packet, "source_repo", "unknown")
+        target = getattr(packet, "target_repo", "unknown")
+        state_hash = getattr(packet, "state_hash", "")
+
+        return BecomingTransition(
+            current_state=current_state,
+            next_state="handoff_transferred",
+            action="continue_becoming",
+            loop=True,
+            reason=f"State handoff {packet_id} active: {source} -> {target}",
+            provenance=(source, target, packet_id),
+            verification_hash=state_hash,
+        )
+
+
     @staticmethod
     def to_dict(transition: BecomingTransition) -> dict[str, Any]:
         return {

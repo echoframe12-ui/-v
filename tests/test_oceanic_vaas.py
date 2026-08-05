@@ -1,4 +1,4 @@
-﻿'''Tests for Oceanic VaaS (Verification-as-a-Service) REST endpoints.
+'''Tests for Oceanic VaaS (Verification-as-a-Service) REST endpoints.
 
 Covers:
   POST /oceanic/contracts        -- contract validation
@@ -258,3 +258,57 @@ class OceanicPerspectivesTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.get_json()
         self.assertFalse(body['dissent_flag'])  # all 3 adapters support arithmetic_correctness
+
+
+class OceanicConsensusVaaSTests(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_consensus_endpoint(self):
+        payload = {"prompt": "Verify system invariants", "max_iterations": 2}
+        resp = self.client.post('/oceanic/consensus', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['prompt'], "Verify system invariants")
+        self.assertIn("converged", body)
+        self.assertIn("mood", body)
+        self.assertIn("transition", body)
+
+
+class OceanicHandoffVaaSTests(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_handoff_export_import_and_cycle(self):
+        export_payload = {
+            "source_repo": "repo_A",
+            "target_repo": "repo_B",
+            "payload": {"state": "verified_v1"},
+            "sequence": 1,
+        }
+        exp_resp = self.client.post('/oceanic/handoff/export', data=json.dumps(export_payload), content_type='application/json')
+        self.assertEqual(exp_resp.status_code, 200)
+        packet = exp_resp.get_json()
+        self.assertEqual(packet['source_repo'], 'repo_A')
+        self.assertEqual(packet['target_repo'], 'repo_B')
+
+        imp_resp = self.client.post('/oceanic/handoff/import', data=json.dumps({"packet": packet}), content_type='application/json')
+        self.assertEqual(imp_resp.status_code, 200)
+        imp_body = imp_resp.get_json()
+        self.assertTrue(imp_body['valid'])
+
+        # Verify Cycle
+        p1 = packet
+        p2 = self.client.post('/oceanic/handoff/export', data=json.dumps({
+            "source_repo": "repo_B", "target_repo": "repo_C", "payload": {"state": "verified_v2"}, "sequence": 2
+        }), content_type='application/json').get_json()
+        p3 = self.client.post('/oceanic/handoff/export', data=json.dumps({
+            "source_repo": "repo_C", "target_repo": "repo_A", "payload": {"state": "verified_v3"}, "sequence": 3
+        }), content_type='application/json').get_json()
+
+        cycle_resp = self.client.post('/oceanic/handoff/verify_cycle', data=json.dumps({"packets": [p1, p2, p3]}), content_type='application/json')
+        self.assertEqual(cycle_resp.status_code, 200)
+        cycle_body = cycle_resp.get_json()
+        self.assertTrue(cycle_body['valid'])
+        self.assertTrue(cycle_body['is_closed_loop'])
+

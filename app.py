@@ -2085,6 +2085,110 @@ def oceanic_perspectives():
     )
 
 
+# ---------------------------------------------------------------------------
+# Oceanic Phase 6 — Continuous Becoming & Multi-Agent Consensus
+# ---------------------------------------------------------------------------
+from continuous_becoming import ContinuousBecomingEngine
+from multi_agent_consensus import MultiAgentConsensusEngine
+from cross_repo_handoff import CrossRepoHandoffEngine
+
+
+
+@app.route("/oceanic/consensus", methods=["POST"])
+def oceanic_consensus():
+    """Run an iterative multi-agent consensus loop with MOOD dissent gating.
+
+    Body: ``prompt`` (str), optional ``max_iterations`` (int).
+    Returns: iterations, converged flag, final_dissent_score, mood status, and state transition.
+    """
+    payload = request.get_json(silent=True) or {}
+    prompt = payload.get("prompt", "Verify system invariants")
+    max_iterations = payload.get("max_iterations", 3)
+
+    engine = MultiAgentConsensusEngine(
+        db_path=str(service.db_path),
+        ledger=_oceanic_ledger,
+    )
+    result = engine.run_loop(prompt, max_iterations=max_iterations)
+    return jsonify(
+        {
+            "prompt": result.prompt,
+            "iterations": result.iterations,
+            "converged": result.converged,
+            "final_dissent_score": result.final_dissent_score,
+            "mood": result.assessment.status,
+            "transition": ContinuousBecomingEngine.to_dict(result.transition),
+        }
+    )
+
+
+@app.route("/oceanic/handoff/export", methods=["POST"])
+def oceanic_handoff_export():
+    """Export a cross-repository state handoff packet.
+
+    Body: ``source_repo`` (str), ``target_repo`` (str), ``payload`` (dict),
+    optional ``sequence`` (int), optional ``attestation_id`` (str).
+    """
+    payload = request.get_json(silent=True) or {}
+    source_repo = payload.get("source_repo")
+    target_repo = payload.get("target_repo")
+    data = payload.get("payload", {})
+    sequence = payload.get("sequence", 1)
+    attestation_id = payload.get("attestation_id")
+
+    if not source_repo or not target_repo:
+        return jsonify({"error": "source_repo and target_repo are required"}), 400
+
+    engine = CrossRepoHandoffEngine(ledger=_oceanic_ledger)
+    try:
+        packet = engine.export_handoff(
+            source_repo,
+            target_repo,
+            data,
+            sequence=sequence,
+            attestation_id=attestation_id,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(packet.to_dict())
+
+
+@app.route("/oceanic/handoff/import", methods=["POST"])
+def oceanic_handoff_import():
+    """Import and verify a cross-repository state handoff packet.
+
+    Body: ``packet`` (HandoffPacket dict), optional ``expected_sequence`` (int).
+    """
+    payload = request.get_json(silent=True) or {}
+    packet_data = payload.get("packet") or payload
+    expected_sequence = payload.get("expected_sequence")
+
+    engine = CrossRepoHandoffEngine(ledger=_oceanic_ledger)
+    try:
+        result = engine.import_handoff(packet_data, expected_sequence=expected_sequence)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(result)
+
+
+@app.route("/oceanic/handoff/verify_cycle", methods=["POST"])
+def oceanic_handoff_verify_cycle():
+    """Verify a continuous cross-repository handoff cycle (A -> B -> C -> A -> inf).
+
+    Body: ``packets`` (list of HandoffPacket dicts).
+    """
+    payload = request.get_json(silent=True) or {}
+    packets = payload.get("packets", [])
+
+    engine = CrossRepoHandoffEngine()
+    result = engine.verify_cycle(packets)
+    status_code = 200 if result.get("valid") else 400
+    return jsonify(result), status_code
+
+
+
 def main() -> None:
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "5000"))

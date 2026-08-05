@@ -5,12 +5,16 @@ import json
 import sys
 from typing import Any
 
+from continuous_becoming import ContinuousBecomingEngine
 from full_stack_e2e_gate import check as check_contract_stack
 from mood import MoodSignal, assess, record_to_ledger
+from multi_agent_consensus import MultiAgentConsensusEngine
+from cross_repo_handoff import CrossRepoHandoffEngine, HandoffPacket
 from oceanic_event_ledger import EventLedger
 from server import OceanicOSService
 from universal_builder import UniversalBuilder
 from workflows import WorkflowEngine
+
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,6 +59,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     # gate (contract stack only)
     subparsers.add_parser("gate", help="Run Ω∞v contract stack check")
+
+    # consensus
+    consensus_parser = subparsers.add_parser("consensus", help="Run multi-agent autonomous consensus loop")
+    consensus_parser.add_argument("--prompt", "-p", type=str, default="Verify system invariants", help="Prompt for panel")
+    consensus_parser.add_argument("--max-iterations", "-m", type=int, default=3, help="Max iterations")
+
+    # handoff
+    handoff_parser = subparsers.add_parser("handoff", help="Cross-repository state handoff")
+    handoff_sub = handoff_parser.add_subparsers(dest="handoff_action", help="Handoff action")
+
+    export_sub = handoff_sub.add_parser("export", help="Export state handoff packet")
+    export_sub.add_argument("--source", "-s", type=str, required=True, help="Source repo name")
+    export_sub.add_argument("--target", "-t", type=str, required=True, help="Target repo name")
+    export_sub.add_argument("--payload", type=str, default="{}", help="JSON payload string")
+
+    import_sub = handoff_sub.add_parser("import", help="Import state handoff packet")
+    import_sub.add_argument("packet", type=str, help="JSON string or file path to handoff packet")
 
     # plugins
     subparsers.add_parser("plugins", help="List registered plugins")
@@ -150,6 +171,48 @@ def main(args: list[str] | None = None) -> int:
         gate_result = check_contract_stack()
         print(json.dumps(gate_result, indent=2))
         return 0 if gate_result.get("ok") else 1
+
+    elif parsed.command == "consensus":
+        ledger = EventLedger("oceanic_lifecycle.jsonl")
+        engine = MultiAgentConsensusEngine(ledger=ledger, db_path="oceanicos.db")
+        result = engine.run_loop(parsed.prompt, max_iterations=parsed.max_iterations)
+        output = {
+            "prompt": result.prompt,
+            "iterations": result.iterations,
+            "converged": result.converged,
+            "final_dissent_score": result.final_dissent_score,
+            "mood": result.assessment.status,
+            "transition": ContinuousBecomingEngine.to_dict(result.transition),
+        }
+        print(json.dumps(output, indent=2))
+        return 0 if result.converged else 1
+
+    elif parsed.command == "handoff":
+        ledger = EventLedger("oceanic_lifecycle.jsonl")
+        engine = CrossRepoHandoffEngine(ledger=ledger)
+        if parsed.handoff_action == "export":
+            try:
+                payload = json.loads(parsed.payload)
+            except json.JSONDecodeError as exc:
+                print(f"Error: Invalid JSON payload: {exc}", file=sys.stderr)
+                return 1
+            packet = engine.export_handoff(parsed.source, parsed.target, payload)
+            print(json.dumps(packet.to_dict(), indent=2))
+            return 0
+        elif parsed.handoff_action == "import":
+            pkt_data = parsed.packet
+            if pkt_data.startswith("{"):
+                data = json.loads(pkt_data)
+            else:
+                with open(pkt_data, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            result = engine.import_handoff(data)
+            print(json.dumps(result, indent=2))
+            return 0 if result.get("valid") else 1
+        else:
+            handoff_parser = parser._subparsers._group_actions[0]._name_parser_map["handoff"]
+            handoff_parser.print_help()
+            return 1
 
     elif parsed.command == "plugins":
         print(json.dumps(service.list_plugins(), indent=2))

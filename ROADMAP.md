@@ -36,7 +36,8 @@ This roadmap captures the first practical steps for turning the charter into an 
 
 ## Phase 6: Continuous Becoming
 
-- Extend MOOD dissent routing for multi-agent autonomous consensus loops.
-- Expand verification contracts for continuous cross-repository state handoffs (`A → B → C → A → ∞`).
-- Maintain local-first append-only ledger auditability across token-limited environments.
+- [x] Extend MOOD dissent routing for multi-agent autonomous consensus loops (`multi_agent_consensus.py`, `/oceanic/consensus`).
+- [x] Expand verification contracts for continuous cross-repository state handoffs (`A → B → C → A → ∞`) (`cross_repo_handoff.py`, `/oceanic/handoff/*`).
+- [x] Maintain local-first append-only ledger auditability across token-limited environments (`oceanic_event_ledger.py`, `ContinuousBecomingEngine`).
+
 
