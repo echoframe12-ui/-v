@@ -1,0 +1,264 @@
+import express, { Express, Request, Response } from 'express';
+import { Observer } from '@omega-v/observer';
+import { VerificationEngine } from '@omega-v/verification';
+import { AttestationService } from '@omega-v/attestation';
+import { SuccessResponse, ErrorResponse } from '@omega-v/types';
+
+/**
+ * Ω∞v Oceanicos API Server
+ * Exposes the verification loop via REST endpoints
+ */
+const app: Express = express();
+const port = process.env.API_PORT || 3000;
+
+// Middleware
+app.use(express.json());
+
+// Initialize services
+const observer = new Observer();
+const verificationEngine = new VerificationEngine();
+const attestationService = new AttestationService();
+
+// Register default rules
+verificationEngine.registerRule({
+  name: 'response-time-threshold',
+  version: '1.0.5',
+  appliesTo: ['health-check'],
+  definition: 'responseTime < 100',
+  description: 'Verify response time is below 100ms',
+  createdAt: new Date().toISOString(),
+  active: true,
+});
+
+verificationEngine.registerRule({
+  name: 'status-code-check',
+  version: '1.2.0',
+  appliesTo: ['health-check'],
+  definition: 'statusCode == 200',
+  description: 'Verify HTTP status code is 200 OK',
+  createdAt: new Date().toISOString(),
+  active: true,
+});
+
+/**
+ * Health check endpoint
+ */
+app.get('/health', (_req: Request, res: Response) => {
+  const response: SuccessResponse<{ status: string }> = {
+    data: { status: 'ok' },
+    timestamp: new Date().toISOString(),
+  };
+  res.json(response);
+});
+
+/**
+ * POST /observe - Submit an observation
+ * Step 1 of the verification loop
+ */
+app.post('/observe', (req: Request, res: Response) => {
+  try {
+    const { claim, category, source, observedBy, metadata, confidence, confidenceReason } =
+      req.body;
+
+    const observation = observer.observe({
+      claim,
+      category,
+      source,
+      observedBy,
+      metadata,
+      confidence,
+      confidenceReason,
+    });
+
+    const response: SuccessResponse<typeof observation> = {
+      data: observation,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    const errorResponse: ErrorResponse = {
+      code: 'OBSERVATION_FAILED',
+      message: error instanceof Error ? error.message : 'Failed to create observation',
+      timestamp: new Date().toISOString(),
+    };
+    res.status(400).json(errorResponse);
+  }
+});
+
+/**
+ * POST /verify - Verify an observation
+ * Step 2 of the verification loop
+ */
+app.post('/verify', (req: Request, res: Response) => {
+  try {
+    const { observation } = req.body;
+
+    if (!observation) {
+      const errorResponse: ErrorResponse = {
+        code: 'MISSING_OBSERVATION',
+        message: 'Observation is required',
+        timestamp: new Date().toISOString(),
+      };
+      res.status(400).json(errorResponse);
+      return;
+    }
+
+    const verificationResult = verificationEngine.verify(observation);
+
+    const response: SuccessResponse<typeof verificationResult> = {
+      data: verificationResult,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    const errorResponse: ErrorResponse = {
+      code: 'VERIFICATION_FAILED',
+      message: error instanceof Error ? error.message : 'Verification failed',
+      timestamp: new Date().toISOString(),
+    };
+    res.status(400).json(errorResponse);
+  }
+});
+
+/**
+ * POST /attest - Attest a verification result
+ * Step 3 of the verification loop
+ */
+app.post('/attest', (req: Request, res: Response) => {
+  try {
+    const { verificationResult } = req.body;
+
+    if (!verificationResult) {
+      const errorResponse: ErrorResponse = {
+        code: 'MISSING_VERIFICATION',
+        message: 'Verification result is required',
+        timestamp: new Date().toISOString(),
+      };
+      res.status(400).json(errorResponse);
+      return;
+    }
+
+    const attestation = attestationService.attest(verificationResult);
+
+    const response: SuccessResponse<typeof attestation> = {
+      data: attestation,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    const errorResponse: ErrorResponse = {
+      code: 'ATTESTATION_FAILED',
+      message: error instanceof Error ? error.message : 'Attestation failed',
+      timestamp: new Date().toISOString(),
+    };
+    res.status(400).json(errorResponse);
+  }
+});
+
+/**
+ * POST /complete-loop - Execute the complete verification loop
+ * Observe → Verify → Attest in one request
+ */
+app.post('/complete-loop', (req: Request, res: Response) => {
+  try {
+    const { claim, category, source, observedBy, metadata, confidence, confidenceReason } =
+      req.body;
+
+    // Step 1: Observe
+    const observation = observer.observe({
+      claim,
+      category,
+      source,
+      observedBy,
+      metadata,
+      confidence,
+      confidenceReason,
+    });
+
+    // Step 2: Verify
+    const verificationResult = verificationEngine.verify(observation);
+
+    // Step 3: Attest
+    const attestation = attestationService.attest(verificationResult);
+
+    const response: SuccessResponse<{
+      observation: typeof observation;
+      verification: typeof verificationResult;
+      attestation: typeof attestation;
+    }> = {
+      data: {
+        observation,
+        verification: verificationResult,
+        attestation,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    const errorResponse: ErrorResponse = {
+      code: 'LOOP_FAILED',
+      message: error instanceof Error ? error.message : 'Verification loop failed',
+      timestamp: new Date().toISOString(),
+    };
+    res.status(400).json(errorResponse);
+  }
+});
+
+/**
+ * GET /rules - List all registered verification rules
+ */
+app.get('/rules', (_req: Request, res: Response) => {
+  const applicableRules = verificationEngine.getApplicableRules({
+    claim: { statement: '', category: '' },
+    source: { system: '', version: '', environment: '' },
+    timestamp: '',
+    observedBy: '',
+    metadata: {},
+    confidence: 0,
+    confidenceReason: '',
+    status: 'normalized',
+    id: '',
+  });
+
+  const response: SuccessResponse<{ count: number; rules: any[] }> = {
+    data: {
+      count: applicableRules.length,
+      rules: applicableRules,
+    },
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+});
+
+/**
+ * 404 Handler
+ */
+app.use((_req: Request, res: Response) => {
+  const errorResponse: ErrorResponse = {
+    code: 'NOT_FOUND',
+    message: 'Endpoint not found',
+    timestamp: new Date().toISOString(),
+  };
+  res.status(404).json(errorResponse);
+});
+
+/**
+ * Start the server
+ */
+app.listen(port, () => {
+  console.log(`[Ω∞v API] Verification loop server running on http://localhost:${port}`);
+  console.log(`Available endpoints:`);
+  console.log(`  POST   /observe          - Create an observation`);
+  console.log(`  POST   /verify           - Verify an observation`);
+  console.log(`  POST   /attest           - Attest a verification`);
+  console.log(`  POST   /complete-loop    - Execute full loop in one request`);
+  console.log(`  GET    /rules            - List verification rules`);
+  console.log(`  GET    /health           - Health check`);
+});
+
+export default app;

@@ -1,0 +1,29 @@
+#!/bin/sh
+# Ω∞v Oceanicos Pre-commit Hook
+# Verify code quality before allowing commits
+
+echo "🔍 Pre-commit verification..."
+
+# Run linting
+echo "  → Checking code style..."
+npm run lint || {
+  echo "❌ Linting failed. Run 'npm run lint:fix' to auto-fix."
+  exit 1
+}
+
+# Run type checking
+echo "  → Type checking..."
+npm run type-check || {
+  echo "❌ Type checking failed."
+  exit 1
+}
+
+# Run tests
+echo "  → Running tests..."
+npm run test:fast || {
+  echo "❌ Tests failed."
+  exit 1
+}
+
+echo "✅ Pre-commit checks passed"
+exit 0
