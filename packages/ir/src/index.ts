@@ -27,6 +27,10 @@ export enum Opcode {
   OR = 'OR',
   /** Logical NOT */
   NOT = 'NOT',
+  /** String or Array substring check */
+  CONTAINS = 'CONTAINS',
+  /** Numeric range check */
+  BETWEEN = 'BETWEEN',
   /** Store stack top as result key */
   STORE = 'STORE',
   /** Assert condition on stack top with step reasoning message */
@@ -167,6 +171,30 @@ export class OceanicumVM {
           const res = !val;
           stack.push(res);
           reasoning = `Evaluated (!${val}) -> ${res}`;
+          break;
+        }
+
+        case Opcode.CONTAINS: {
+          const needle = stack.pop();
+          const haystack = stack.pop();
+          let res = false;
+          if (typeof haystack === 'string' && typeof needle === 'string') {
+            res = haystack.includes(needle);
+          } else if (Array.isArray(haystack)) {
+            res = haystack.includes(needle);
+          }
+          stack.push(res);
+          reasoning = `Evaluated (${JSON.stringify(haystack)} CONTAINS ${JSON.stringify(needle)}) -> ${res}`;
+          break;
+        }
+
+        case Opcode.BETWEEN: {
+          const max = stack.pop() as number;
+          const min = stack.pop() as number;
+          const val = stack.pop() as number;
+          const res = val >= min && val <= max;
+          stack.push(res);
+          reasoning = `Evaluated (${val} BETWEEN [${min}, ${max}]) -> ${res}`;
           break;
         }
 

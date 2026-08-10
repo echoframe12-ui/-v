@@ -31,38 +31,52 @@ export class RuleCompiler {
         continue;
       }
 
-      // Parse simple binary expression: `left op right`
-      const match = token.match(/^([a-zA-Z0-9_.]+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/);
-      if (!match) {
-        throw new Error(`Compiler Syntax Error: Unable to parse expression '${token}' in rule '${ruleName}'`);
-      }
+      // Check between operator: `field between min max`
+      const betweenMatch = token.match(/^([a-zA-Z0-9_.]+)\s+between\s+([0-9.]+)\s+([0-9.]+)$/i);
+      if (betweenMatch) {
+        const [, field, minStr, maxStr] = betweenMatch;
+        const fullPath = field.startsWith('metadata.') ? field : `metadata.${field}`;
+        instructions.push({ opcode: Opcode.LOAD, operand: fullPath });
+        instructions.push({ opcode: Opcode.CONST, operand: Number(minStr) });
+        instructions.push({ opcode: Opcode.CONST, operand: Number(maxStr) });
+        instructions.push({ opcode: Opcode.BETWEEN });
+      } else {
+        // Parse binary expression: `left op right`
+        const match = token.match(/^([a-zA-Z0-9_.]+)\s*(==|!=|<=|>=|<|>|contains)\s*(.+)$/i);
+        if (!match) {
+          throw new Error(`Compiler Syntax Error: Unable to parse expression '${token}' in rule '${ruleName}'`);
+        }
 
-      const [, field, operator, rawVal] = match;
-      const parsedVal = this.parseValue(rawVal);
-      const fullPath = field.startsWith('metadata.') ? field : `metadata.${field}`;
+        const [, field, operator, rawVal] = match;
+        const parsedVal = this.parseValue(rawVal);
+        const fullPath = field.startsWith('metadata.') ? field : `metadata.${field}`;
 
-      instructions.push({ opcode: Opcode.LOAD, operand: fullPath });
-      instructions.push({ opcode: Opcode.CONST, operand: parsedVal });
+        instructions.push({ opcode: Opcode.LOAD, operand: fullPath });
+        instructions.push({ opcode: Opcode.CONST, operand: parsedVal });
 
-      switch (operator) {
-        case '==':
-          instructions.push({ opcode: Opcode.EQ });
-          break;
-        case '!=':
-          instructions.push({ opcode: Opcode.NEQ });
-          break;
-        case '<':
-          instructions.push({ opcode: Opcode.LT });
-          break;
-        case '<=':
-          instructions.push({ opcode: Opcode.LTE });
-          break;
-        case '>':
-          instructions.push({ opcode: Opcode.GT });
-          break;
-        case '>=':
-          instructions.push({ opcode: Opcode.GTE });
-          break;
+        switch (operator.toLowerCase()) {
+          case '==':
+            instructions.push({ opcode: Opcode.EQ });
+            break;
+          case '!=':
+            instructions.push({ opcode: Opcode.NEQ });
+            break;
+          case '<':
+            instructions.push({ opcode: Opcode.LT });
+            break;
+          case '<=':
+            instructions.push({ opcode: Opcode.LTE });
+            break;
+          case '>':
+            instructions.push({ opcode: Opcode.GT });
+            break;
+          case '>=':
+            instructions.push({ opcode: Opcode.GTE });
+            break;
+          case 'contains':
+            instructions.push({ opcode: Opcode.CONTAINS });
+            break;
+        }
       }
 
       if (pendingLogicalOp) {

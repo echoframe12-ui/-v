@@ -48,6 +48,25 @@ describe('RuleCompiler', () => {
     expect(prog2.instructions[1].operand).toBe(null);
   });
 
+  it('should compile and execute `contains` string operator', () => {
+    const prog = compiler.compile('contains-check', 'serviceName contains "gateway"');
+    expect(prog.instructions[2].opcode).toBe(Opcode.CONTAINS);
+
+    const res = vm.execute(prog, { metadata: { serviceName: 'production-gateway-v2' } });
+    expect(res.passed).toBe(true);
+  });
+
+  it('should compile and execute `between` numeric range operator', () => {
+    const prog = compiler.compile('between-check', 'responseTime between 10 50');
+    expect(prog.instructions[3].opcode).toBe(Opcode.BETWEEN);
+
+    const res1 = vm.execute(prog, { metadata: { responseTime: 25 } });
+    expect(res1.passed).toBe(true);
+
+    const res2 = vm.execute(prog, { metadata: { responseTime: 99 } });
+    expect(res2.passed).toBe(false);
+  });
+
   it('should throw clear syntax error on invalid rule syntax', () => {
     expect(() => {
       compiler.compile('invalid-rule', 'invalid syntax without operator');
