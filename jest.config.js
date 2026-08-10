@@ -16,6 +16,7 @@ export default {
     '@omega-v/cli': '<rootDir>/packages/cli/src/index.ts',
     '@omega-v/agents': '<rootDir>/packages/agents/src/index.ts',
     '@omega-v/mood': '<rootDir>/packages/mood/src/index.ts',
+    '@omega-v/friction': '<rootDir>/packages/friction/src/index.ts',
   },
   collectCoverageFrom: [
     'packages/*/src/**/*.ts',

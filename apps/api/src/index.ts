@@ -6,7 +6,8 @@ import { ProvenanceStore } from '@omega-v/store';
 import { OceanicosClient } from '@omega-v/sdk';
 import { FormlessSwarm } from '@omega-v/agents';
 import { MoodEvaluator } from '@omega-v/mood';
-import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult, SystemMood } from '@omega-v/types';
+import { FrictionTracker } from '@omega-v/friction';
+import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult, SystemMood, FrictionCategory } from '@omega-v/types';
 
 /**
  * Ω∞v Oceanicos API Server
@@ -29,6 +30,7 @@ const observer = new Observer();
 const verificationEngine = new VerificationEngine();
 const attestationService = new AttestationService();
 const store = new ProvenanceStore();
+const frictionTracker = new FrictionTracker();
 
 // Register default rules
 verificationEngine.registerRule({
@@ -272,8 +274,45 @@ app.get('/mood', (_req: Request, res: Response) => {
   const metrics = store.getMetrics();
   const integrity = store.verifyChainIntegrity();
   const moodEvaluator = new MoodEvaluator();
-  const mood: SystemMood = moodEvaluator.evaluate(metrics, integrity.valid);
+  const dissentMetrics = frictionTracker.getMetrics();
+  const mood: SystemMood = moodEvaluator.evaluate(metrics, integrity.valid, dissentMetrics.openDissent);
   res.json({ data: mood, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof mood>);
+});
+
+/** GET /friction — Query friction events and summary metrics (Pillar 20) */
+app.get('/friction', (_req: Request, res: Response) => {
+  const events = frictionTracker.getFriction();
+  const metrics = frictionTracker.getMetrics();
+  res.json({ data: { events, metrics }, timestamp: new Date().toISOString() } satisfies SuccessResponse<{ events: typeof events; metrics: typeof metrics }>);
+});
+
+/** POST /friction — Record a new system friction event (Pillar 20) */
+app.post('/friction', (req: Request, res: Response) => {
+  const { category, source, description, evidence, severity } = req.body;
+  if (!category || !source || !description) {
+    res.status(400).json({ code: 'BAD_REQUEST', message: 'Missing category, source, or description', timestamp: new Date().toISOString() });
+    return;
+  }
+  const event = frictionTracker.record({ category: category as FrictionCategory, source, description, evidence, severity });
+  res.status(201).json({ data: event, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof event>);
+});
+
+/** GET /dissent — Query active dissent records (Pillar 21) */
+app.get('/dissent', (_req: Request, res: Response) => {
+  const records = frictionTracker.getDissent();
+  const metrics = frictionTracker.getMetrics();
+  res.json({ data: { records, openDissent: metrics.openDissent }, timestamp: new Date().toISOString() } satisfies SuccessResponse<{ records: typeof records; openDissent: number }>);
+});
+
+/** POST /dissent — Record explicit disagreement / competing interpretations (Pillar 21) */
+app.post('/dissent', (req: Request, res: Response) => {
+  const { claimId, interpretations } = req.body;
+  if (!claimId || !Array.isArray(interpretations) || interpretations.length < 2) {
+    res.status(400).json({ code: 'BAD_REQUEST', message: 'Dissent requires claimId and at least 2 interpretations', timestamp: new Date().toISOString() });
+    return;
+  }
+  const dissent = frictionTracker.recordDissent(claimId, interpretations);
+  res.status(201).json({ data: dissent, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof dissent>);
 });
 
 /**

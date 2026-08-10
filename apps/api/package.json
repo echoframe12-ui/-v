@@ -27,6 +27,7 @@
     "@omega-v/sdk": "*",
     "@omega-v/agents": "*",
     "@omega-v/mood": "*",
+    "@omega-v/friction": "*",
     "express": "^4.18.2"
   },
   "devDependencies": {

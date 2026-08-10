@@ -32,7 +32,8 @@
       "@omega-v/sdk": ["packages/sdk/src/index.ts"],
       "@omega-v/cli": ["packages/cli/src/index.ts"],
       "@omega-v/agents": ["packages/agents/src/index.ts"],
-      "@omega-v/mood": ["packages/mood/src/index.ts"]
+      "@omega-v/mood": ["packages/mood/src/index.ts"],
+      "@omega-v/friction": ["packages/friction/src/index.ts"]
     }
   },
   "include": ["packages/*/src", "apps/*/src"],

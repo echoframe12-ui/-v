@@ -368,3 +368,64 @@ export interface SystemMood {
   description: string;
   evaluatedAt: string;
 }
+
+/**
+ * VerificationStatus: Granular verification outcomes (Pillar 10)
+ * Never collapse these into a single boolean.
+ */
+export type VerificationStatus =
+  | 'VERIFIED'
+  | 'PARTIALLY_VERIFIED'
+  | 'UNVERIFIED'
+  | 'CONTRADICTED'
+  | 'UNKNOWN'
+  | 'DISSENT';
+
+/**
+ * FrictionEvent: Observable system friction (Pillar 20)
+ * Friction is information, not failure.
+ */
+export type FrictionCategory =
+  | 'ERROR'
+  | 'LATENCY'
+  | 'CONTRADICTION'
+  | 'MISSING_EVIDENCE'
+  | 'PERMISSION_FAILURE'
+  | 'TEST_FAILURE'
+  | 'SECURITY_ISSUE'
+  | 'MODEL_DISAGREEMENT'
+  | 'HUMAN_DISAGREEMENT';
+
+export interface FrictionEvent {
+  id: string;
+  category: FrictionCategory;
+  source: string;
+  description: string;
+  evidence: string[];
+  severity: 'info' | 'warning' | 'critical';
+  status: 'OPEN' | 'DIAGNOSED' | 'RESOLVED' | 'LEARNING';
+  correlationId?: string;
+  diagnosis?: string;
+  resolution?: string;
+  recordedAt: string;
+}
+
+/**
+ * DissentRecord: Explicit disagreement representation (Pillar 21)
+ * Do not manufacture consensus. Do not suppress minority results.
+ */
+export interface DissentRecord {
+  id: string;
+  claimId: string;
+  interpretations: DissentInterpretation[];
+  status: 'OPEN' | 'RESOLVED' | 'ACCEPTED';
+  recordedAt: string;
+}
+
+export interface DissentInterpretation {
+  position: string;
+  source: string;
+  evidence: string[];
+  confidence: number;
+}
+
