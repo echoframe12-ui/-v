@@ -220,6 +220,53 @@ app.get('/metrics', (_req: Request, res: Response) => {
 });
 
 /**
+ * Pillar 16 Endpoints: /observations, /verifications, /attestations, /lineage, /agents
+ */
+
+/** GET /observations */
+app.get('/observations', (_req: Request, res: Response) => {
+  const result = store.query({ type: 'OBSERVATION', limit: 100 });
+  res.json({ data: result, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof result>);
+});
+
+/** GET /verifications */
+app.get('/verifications', (_req: Request, res: Response) => {
+  const result = store.query({ type: 'VERIFICATION', limit: 100 });
+  res.json({ data: result, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof result>);
+});
+
+/** GET /attestations */
+app.get('/attestations', (_req: Request, res: Response) => {
+  const result = store.query({ type: 'ATTESTATION', limit: 100 });
+  res.json({ data: result, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof result>);
+});
+
+/** GET /lineage */
+app.get('/lineage', (_req: Request, res: Response) => {
+  const allEntries = store.query({ limit: 1000 }).events;
+  const integrity = store.verifyChainIntegrity();
+  const lineage = {
+    genesisHash: ProvenanceStore.GENESIS_HASH,
+    totalNodes: allEntries.length,
+    integrity,
+    chainHead: store.getLatest()?.hash ?? ProvenanceStore.GENESIS_HASH,
+  };
+  res.json({ data: lineage, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof lineage>);
+});
+
+/** GET /agents */
+app.get('/agents', (_req: Request, res: Response) => {
+  const agents = [
+    { role: 'Observer', capability: 'CAPTURE_SIGNAL', permissions: ['CAN_OBSERVE'] },
+    { role: 'Verifier', capability: 'VERIFY_RULE', permissions: ['CAN_REASON', 'CAN_PROPOSE'] },
+    { role: 'Security', capability: 'SECURITY_AUDIT', permissions: ['CAN_OBSERVE', 'CAN_REASON'] },
+    { role: 'Governance', capability: 'GOVERNANCE_CHECK', permissions: ['CAN_PROPOSE', 'CAN_ACT'] },
+    { role: 'Learning', capability: 'EXTRACT_INSIGHTS', permissions: ['CAN_OBSERVE', 'CAN_REASON', 'CAN_ATTEST'] },
+  ];
+  res.json({ data: agents, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof agents>);
+});
+
+/**
  * 404 Handler
  */
 app.use((_req: Request, res: Response) => {
