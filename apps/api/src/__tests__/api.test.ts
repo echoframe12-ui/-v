@@ -26,5 +26,6 @@ describe('Ω∞v Oceanicos API Server', () => {
     expect(routes).toContain('/mood');
     expect(routes).toContain('/friction');
     expect(routes).toContain('/dissent');
+    expect(routes).toContain('/graph');
   });
 });

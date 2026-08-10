@@ -28,6 +28,7 @@
     "@omega-v/agents": "*",
     "@omega-v/mood": "*",
     "@omega-v/friction": "*",
+    "@omega-v/graph": "*",
     "express": "^4.18.2"
   },
   "devDependencies": {

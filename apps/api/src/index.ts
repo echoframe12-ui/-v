@@ -7,6 +7,7 @@ import { OceanicosClient } from '@omega-v/sdk';
 import { FormlessSwarm } from '@omega-v/agents';
 import { MoodEvaluator } from '@omega-v/mood';
 import { FrictionTracker } from '@omega-v/friction';
+import { ProvenanceGraph } from '@omega-v/graph';
 import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult, SystemMood, FrictionCategory } from '@omega-v/types';
 
 /**
@@ -313,6 +314,16 @@ app.post('/dissent', (req: Request, res: Response) => {
   }
   const dissent = frictionTracker.recordDissent(claimId, interpretations);
   res.status(201).json({ data: dissent, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof dissent>);
+});
+
+/** GET /graph — Provenance Knowledge Graph & Lineage DAG (Section XIV) */
+app.get('/graph', (_req: Request, res: Response) => {
+  const events = store.query({ limit: 1000 }).events;
+  const graph = new ProvenanceGraph();
+  graph.ingestEvents(events);
+  const stats = graph.getStats();
+  const traversal = events.length > 0 ? graph.traverseForward(`event-${events[0].id}`) : null;
+  res.json({ data: { stats, traversal }, timestamp: new Date().toISOString() } satisfies SuccessResponse<{ stats: typeof stats; traversal: typeof traversal }>);
 });
 
 /**

@@ -429,3 +429,33 @@ export interface DissentInterpretation {
   confidence: number;
 }
 
+/**
+ * Provenance Graph Types (Section XIV)
+ * Bidirectional cause-and-effect lineage graph.
+ */
+export interface ProvenanceGraphNode {
+  id: string;
+  type: 'OBSERVATION' | 'VERIFICATION' | 'ATTESTATION' | 'ACTION' | 'OUTCOME' | 'LEARNING' | 'FRICTION' | 'DISSENT';
+  label: string;
+  hash: string;
+  recordedAt: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface ProvenanceGraphEdge {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relation: 'PRODUCED' | 'VERIFIED_BY' | 'ATTESTED_BY' | 'RESULTED_IN' | 'SUPERSEDES' | 'CONTRADICTS';
+  timestamp: string;
+}
+
+export interface GraphTraversalResult {
+  rootId: string;
+  direction: 'FORWARD' | 'BACKWARD' | 'BIDIRECTIONAL';
+  nodes: ProvenanceGraphNode[];
+  edges: ProvenanceGraphEdge[];
+  depth: number;
+}
+
+
