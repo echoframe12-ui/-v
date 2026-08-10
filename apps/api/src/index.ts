@@ -5,7 +5,8 @@ import { AttestationService } from '@omega-v/attestation';
 import { ProvenanceStore } from '@omega-v/store';
 import { OceanicosClient } from '@omega-v/sdk';
 import { FormlessSwarm } from '@omega-v/agents';
-import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult } from '@omega-v/types';
+import { MoodEvaluator } from '@omega-v/mood';
+import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult, SystemMood } from '@omega-v/types';
 
 /**
  * Ω∞v Oceanicos API Server
@@ -264,6 +265,15 @@ app.get('/agents', (_req: Request, res: Response) => {
     { role: 'Learning', capability: 'EXTRACT_INSIGHTS', permissions: ['CAN_OBSERVE', 'CAN_REASON', 'CAN_ATTEST'] },
   ];
   res.json({ data: agents, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof agents>);
+});
+
+/** GET /mood — System Mood Evaluator (Pillar 19) */
+app.get('/mood', (_req: Request, res: Response) => {
+  const metrics = store.getMetrics();
+  const integrity = store.verifyChainIntegrity();
+  const moodEvaluator = new MoodEvaluator();
+  const mood: SystemMood = moodEvaluator.evaluate(metrics, integrity.valid);
+  res.json({ data: mood, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof mood>);
 });
 
 /**

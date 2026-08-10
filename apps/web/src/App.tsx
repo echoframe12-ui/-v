@@ -40,6 +40,34 @@ interface Metrics {
   systemConfidence: number;
 }
 
+interface MoodData {
+  state: string;
+  confidence: number;
+  uncertainty: number;
+  verificationHealth: number;
+  evidenceQuality: number;
+  errorRate: number;
+  dissentCount: number;
+  description: string;
+  evaluatedAt: string;
+}
+
+const MOOD_ICONS: Record<string, string> = {
+  OPTIMAL_FLOW: '🌊',
+  HIGH_INTEGRITY: '💎',
+  EVIDENCE_SEARCH: '🔍',
+  FRICTION_DETECTED: '⚡',
+  RECOMPILING: '🔄',
+};
+
+const MOOD_COLORS: Record<string, string> = {
+  OPTIMAL_FLOW: '#38b2ac',
+  HIGH_INTEGRITY: '#9f7aea',
+  EVIDENCE_SEARCH: '#ed8936',
+  FRICTION_DETECTED: '#fc8181',
+  RECOMPILING: '#63b3ed',
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_BASE = 'http://localhost:3000';
@@ -129,13 +157,15 @@ export function App(): JSX.Element {
   const [chainIntegrity, setChainIntegrity] = useState<{ valid: boolean } | null>(null);
   const [apiOnline, setApiOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mood, setMood] = useState<MoodData | null>(null);
 
   // ── Poll log + metrics ──
   const fetchState = useCallback(async () => {
     try {
-      const [logRes, metricsRes] = await Promise.all([
+      const [logRes, metricsRes, moodRes] = await Promise.all([
         fetch(`${API_BASE}/log?limit=30`),
         fetch(`${API_BASE}/metrics`),
+        fetch(`${API_BASE}/mood`),
       ]);
       if (!logRes.ok || !metricsRes.ok) throw new Error('API error');
 
@@ -148,6 +178,11 @@ export function App(): JSX.Element {
       setChainIntegrity(logData.data.integrity);
       setApiOnline(true);
       setError(null);
+
+      if (moodRes.ok) {
+        const moodData = await moodRes.json();
+        setMood(moodData.data as MoodData);
+      }
     } catch {
       setApiOnline(false);
     }
@@ -324,6 +359,25 @@ export function App(): JSX.Element {
               <div className="metric-sub">System confidence</div>
             </div>
           </div>
+
+          {/* ── Mood Indicator (Pillar 19) ── */}
+          {mood && (
+            <div className="mood-card" style={{ borderColor: MOOD_COLORS[mood.state] || '#38b2ac' }}>
+              <div className="mood-header">
+                <span className="mood-icon">{MOOD_ICONS[mood.state] || '💧'}</span>
+                <span className="mood-state" style={{ color: MOOD_COLORS[mood.state] || '#38b2ac' }}>{mood.state.replace(/_/g, ' ')}</span>
+                <span className="mood-confidence">{(mood.confidence * 100).toFixed(0)}% confidence</span>
+              </div>
+              <div className="mood-desc">{mood.description}</div>
+              <div className="mood-dims">
+                <span>Health: {(mood.verificationHealth * 100).toFixed(0)}%</span>
+                <span>Evidence: {(mood.evidenceQuality * 100).toFixed(0)}%</span>
+                <span>Error: {(mood.errorRate * 100).toFixed(1)}%</span>
+                <span>Uncertainty: {(mood.uncertainty * 100).toFixed(0)}%</span>
+                {mood.dissentCount > 0 && <span style={{ color: '#ed8936' }}>Dissent: {mood.dissentCount}</span>}
+              </div>
+            </div>
+          )}
 
           {/* Swarm Result Banner */}
           {swarmResult && (

@@ -351,3 +351,20 @@ export interface SuccessResponse<T> {
   /** When was this created? */
   timestamp: string;
 }
+
+/**
+ * SystemMood: Measurable system state (Pillar 19)
+ */
+export type MoodState = 'OPTIMAL_FLOW' | 'HIGH_INTEGRITY' | 'EVIDENCE_SEARCH' | 'FRICTION_DETECTED' | 'RECOMPILING';
+
+export interface SystemMood {
+  state: MoodState;
+  confidence: number;
+  uncertainty: number;
+  verificationHealth: number;
+  evidenceQuality: number;
+  errorRate: number;
+  dissentCount: number;
+  description: string;
+  evaluatedAt: string;
+}

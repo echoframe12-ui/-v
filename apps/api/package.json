@@ -26,6 +26,7 @@
     "@omega-v/attestation": "*",
     "@omega-v/sdk": "*",
     "@omega-v/agents": "*",
+    "@omega-v/mood": "*",
     "express": "^4.18.2"
   },
   "devDependencies": {
