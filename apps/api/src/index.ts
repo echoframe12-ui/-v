@@ -8,7 +8,8 @@ import { FormlessSwarm } from '@omega-v/agents';
 import { MoodEvaluator } from '@omega-v/mood';
 import { FrictionTracker } from '@omega-v/friction';
 import { ProvenanceGraph } from '@omega-v/graph';
-import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult, SystemMood, FrictionCategory } from '@omega-v/types';
+import { SecurityEngine } from '@omega-v/security';
+import { SuccessResponse, ErrorResponse, VerificationRule, SystemMetrics, EventLogEntry, QueryResult, SystemMood, FrictionCategory, IdentitySubject } from '@omega-v/types';
 
 /**
  * Ω∞v Oceanicos API Server
@@ -32,6 +33,7 @@ const verificationEngine = new VerificationEngine();
 const attestationService = new AttestationService();
 const store = new ProvenanceStore();
 const frictionTracker = new FrictionTracker();
+const securityEngine = new SecurityEngine();
 
 // Register default rules
 verificationEngine.registerRule({
@@ -324,6 +326,23 @@ app.get('/graph', (_req: Request, res: Response) => {
   const stats = graph.getStats();
   const traversal = events.length > 0 ? graph.traverseForward(`event-${events[0].id}`) : null;
   res.json({ data: { stats, traversal }, timestamp: new Date().toISOString() } satisfies SuccessResponse<{ stats: typeof stats; traversal: typeof traversal }>);
+});
+
+/** POST /security/token — Issue HMAC-signed capability token for an identity (Section XVIII) */
+app.post('/security/token', (req: Request, res: Response) => {
+  const subject = req.body as IdentitySubject;
+  if (!subject.id || !subject.permissions || !Array.isArray(subject.permissions)) {
+    res.status(400).json({ code: 'BAD_REQUEST', message: 'Subject id and permissions array required', timestamp: new Date().toISOString() });
+    return;
+  }
+  const token = securityEngine.issueToken(subject);
+  res.status(201).json({ data: token, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof token>);
+});
+
+/** GET /security/audit — Query identity authorization audit log (Section XIX) */
+app.get('/security/audit', (_req: Request, res: Response) => {
+  const auditTrail = securityEngine.getAuditTrail();
+  res.json({ data: auditTrail, timestamp: new Date().toISOString() } satisfies SuccessResponse<typeof auditTrail>);
 });
 
 /**

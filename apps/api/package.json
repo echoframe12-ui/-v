@@ -29,6 +29,7 @@
     "@omega-v/mood": "*",
     "@omega-v/friction": "*",
     "@omega-v/graph": "*",
+    "@omega-v/security": "*",
     "express": "^4.18.2"
   },
   "devDependencies": {

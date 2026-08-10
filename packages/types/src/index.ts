@@ -458,4 +458,41 @@ export interface GraphTraversalResult {
   depth: number;
 }
 
+/**
+ * Security & Authorization Types (Sections XVIII & XIX)
+ * Least privilege, capability scoping, identity verification.
+ */
+export type SecurityPermission =
+  | 'CAN_OBSERVE'
+  | 'CAN_VERIFY'
+  | 'CAN_ATTEST'
+  | 'CAN_PROPOSE'
+  | 'CAN_ACT'
+  | 'CAN_AUDIT'
+  | 'CAN_RECOMPILE';
+
+export interface IdentitySubject {
+  id: string;
+  type: 'HUMAN' | 'AGENT' | 'SYSTEM';
+  name: string;
+  permissions: SecurityPermission[];
+  issuedAt: string;
+}
+
+export interface SecurityToken {
+  subjectId: string;
+  permissions: SecurityPermission[];
+  signature: string;
+  expiresAt: string;
+}
+
+export interface AuthorizationResult {
+  allowed: boolean;
+  subjectId: string;
+  requiredPermission: SecurityPermission;
+  reason: string;
+  timestamp: string;
+}
+
+
 
