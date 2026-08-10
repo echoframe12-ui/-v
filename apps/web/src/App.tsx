@@ -52,6 +52,24 @@ interface MoodData {
   evaluatedAt: string;
 }
 
+interface FrictionItem {
+  id: string;
+  category: string;
+  source: string;
+  description: string;
+  severity: string;
+  status: string;
+  recordedAt: string;
+}
+
+interface DissentItem {
+  id: string;
+  claimId: string;
+  status: string;
+  recordedAt: string;
+  interpretations: { position: string; source: string; confidence: number }[];
+}
+
 const MOOD_ICONS: Record<string, string> = {
   OPTIMAL_FLOW: '🌊',
   HIGH_INTEGRITY: '💎',
@@ -158,14 +176,18 @@ export function App(): JSX.Element {
   const [apiOnline, setApiOnline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mood, setMood] = useState<MoodData | null>(null);
+  const [frictionList, setFrictionList] = useState<FrictionItem[]>([]);
+  const [dissentList, setDissentList] = useState<DissentItem[]>([]);
 
   // ── Poll log + metrics ──
   const fetchState = useCallback(async () => {
     try {
-      const [logRes, metricsRes, moodRes] = await Promise.all([
+      const [logRes, metricsRes, moodRes, frictionRes, dissentRes] = await Promise.all([
         fetch(`${API_BASE}/log?limit=30`),
         fetch(`${API_BASE}/metrics`),
         fetch(`${API_BASE}/mood`),
+        fetch(`${API_BASE}/friction`),
+        fetch(`${API_BASE}/dissent`),
       ]);
       if (!logRes.ok || !metricsRes.ok) throw new Error('API error');
 
@@ -182,6 +204,14 @@ export function App(): JSX.Element {
       if (moodRes.ok) {
         const moodData = await moodRes.json();
         setMood(moodData.data as MoodData);
+      }
+      if (frictionRes.ok) {
+        const frictionData = await frictionRes.json();
+        setFrictionList(frictionData.data.events as FrictionItem[]);
+      }
+      if (dissentRes.ok) {
+        const dissentData = await dissentRes.json();
+        setDissentList(dissentData.data.records as DissentItem[]);
       }
     } catch {
       setApiOnline(false);
@@ -409,6 +439,39 @@ export function App(): JSX.Element {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Friction & Dissent Ledger (Pillars 20-21) ── */}
+          {(frictionList.length > 0 || dissentList.length > 0) && (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20, marginBottom: 24 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--accent-amber)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>⚡ Friction & Dissent Ledger (Pillars 20–21)</span>
+                <span style={{ fontSize: '0.72rem', background: 'rgba(237,137,54,0.15)', color: 'var(--accent-amber)', padding: '2px 8px', borderRadius: 4 }}>
+                  {frictionList.length} Friction | {dissentList.length} Dissent
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                {frictionList.map((f) => (
+                  <div key={f.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-red)' }}>⚡ {f.category}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{f.status}</span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)', marginBottom: 4 }}>{f.description}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Source: {f.source}</div>
+                  </div>
+                ))}
+                {dissentList.map((d) => (
+                  <div key={d.id} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(159,122,234,0.3)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-secondary)' }}>⚖ DISSENT ({d.interpretations.length} Views)</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-secondary)' }}>{d.status}</span>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Claim: {d.claimId}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

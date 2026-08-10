@@ -78,6 +78,8 @@ omega-v-oceanicos/
 │   ├── attestation/   # Cryptographic HMAC-SHA256 signing & hash lineage
 │   ├── compiler/      # Rule compiler & IR generator
 │   ├── ir/            # Execution stack bytecode VM
+│   ├── mood/          # SystemMood evaluator (Pillar 19)
+│   ├── friction/      # FrictionTracker & Dissent recorder (Pillars 20-21)
 │   ├── sdk/           # Full-cycle client SDK
 │   ├── store/         # Append-only hash-chained provenance store
 │   └── cli/           # Terminal CLI tool (`omega-v loop`, `omega-v swarm`, `omega-v integrity`)
