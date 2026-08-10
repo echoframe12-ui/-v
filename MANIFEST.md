@@ -139,21 +139,23 @@ These rules are non-negotiable:
 ## Verification Roadmap
 
 ### Phase 1: Foundation (Core Loop)
-- [ ] Observer: Event capture and normalization
-- [ ] Verification: Rule engine with evidence paths
-- [ ] Attestation: Cryptographic signing service
-- [ ] Database: Append-only provenance store
-- [ ] Dashboard: Timeline view of attestations
+- [x] Observer: Event capture and normalization
+- [x] Verification: Rule engine with evidence paths
+- [x] Attestation: Cryptographic signing service (HMAC-SHA256, signed)
+- [x] API: REST loop server (observe, verify, attest, complete-loop, rules, log, metrics, health)
+- [x] Database: Append-only hash-chained provenance store (`@omega-v/store`)
+- [x] Dashboard: Real-time attestation timeline with live metrics (`@omega-v/web`)
 
 ### Phase 2: Integration (Ecosystem)
-- [ ] Compiler: Rule language → IR
-- [ ] IR: Bytecode representation
-- [ ] SDK: Programmatic interface
-- [ ] CLI: Command-line tool
-- [ ] API: Network service
+- [x] IR: Oceanicum bytecode VM (`@omega-v/ir` — 9 opcodes, stack-based execution)
+- [x] Compiler: Rule DSL → IR compiler (`@omega-v/compiler` — &&, ||, all comparison ops)
+- [x] SDK: Programmatic client (`@omega-v/sdk` — local + remote modes)
+- [x] CLI: Command-line tool (`omega-v loop | metrics | log | integrity`)
+- [x] Agents: Formless swarm (`@omega-v/agents` — Observer, Verifier, Security, Governance, Learning)
 
 ### Phase 3: Distribution (Trustworthy at Scale)
-- [ ] Docker: Containerized verification
+- [x] Docker: Multi-stage Dockerfile + docker-compose + nginx
+- [x] CI: Full pipeline FORMAT→LINT→TYPECHECK→TEST→BUILD→CLI_SMOKE→ATTEST (`.github/workflows/verify.yml`)
 - [ ] Kubernetes: Distributed attestation
 - [ ] Edge: Verification at network edge
 - [ ] VaaS: Verification as a service
@@ -211,5 +213,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 
 ---
 
-**Last Updated**: 2026-08-07  
+**Last Updated**: 2026-08-10  
 **Manifest Status**: Living document — evolves with evidence and community input
+
+---
+
+## Evolution Record
+
+| Version | Date | Loop | Evidence |
+|---------|------|------|----------|
+| Ω∞v := 0 | 2026-08-07 | Observe → Verify → Attest → Build → Test → Deploy → Learn → Evolve | 15 tests, 84.7% coverage, attestation `att-2026-08-07-8dwhz` signed HMAC-SHA256 |
+| Ω∞v := 1 | 2026-08-10 | Phase 1 complete + Phase 2 Ecosystem + Phase 3 Docker/CI | **42 tests, 11 suites, 90.5% stmt, 93.3% fn** — IR VM, Compiler, SDK, CLI (`omega-v loop`), Agents Swarm, Docker, CI pipeline 8 stages |

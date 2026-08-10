@@ -1,0 +1,102 @@
+import { OceanicosClient } from '@omega-v/sdk';
+import { FormlessSwarm } from '@omega-v/agents';
+
+export interface CLIResult {
+  success: boolean;
+  message: string;
+  output?: unknown;
+}
+
+export class OceanicosCLI {
+  private client: OceanicosClient;
+
+  constructor(client?: OceanicosClient) {
+    this.client = client || new OceanicosClient();
+  }
+
+  public async run(args: string[]): Promise<CLIResult> {
+    const command = args[0] || 'help';
+
+    switch (command) {
+      case 'loop': {
+        const claim = args[1] || 'Default CLI verification claim';
+        const result = await this.client.runLoop({ claim });
+        return {
+          success: result.verification.summary.passed,
+          message: `[Ω∞v CLI] Full Loop Complete: ${result.verification.summary.passed ? 'PASSED' : 'FAILED'}`,
+          output: {
+            observationId: result.observation.id,
+            verified: result.verification.summary.passed,
+            attestationId: result.attestation.id,
+            signature: result.attestation.signature,
+          },
+        };
+      }
+
+      case 'swarm': {
+        const claim = args[1] || 'CLI Swarm verification cycle';
+        const swarm = new FormlessSwarm(this.client);
+        const result = await swarm.executeSwarmCycle({
+          claim,
+          ruleName: 'cli-swarm-rule',
+          ruleDefinition: 'responseTime < 100',
+          metadata: { responseTime: 35 },
+        });
+        return {
+          success: result.success,
+          message: `[Ω∞v CLI] Formless Swarm Cycle: ${result.success ? 'PASSED' : 'FAILED'} (${result.agentResults.length} Agents executed)`,
+          output: {
+            success: result.success,
+            agentsCount: result.agentResults.length,
+            attestationId: result.fullLoopResult.attestation.id,
+            signature: result.fullLoopResult.attestation.signature,
+          },
+        };
+      }
+
+      case 'metrics': {
+        const metrics = this.client.getMetrics();
+        return {
+          success: true,
+          message: '[Ω∞v CLI] System Metrics',
+          output: metrics,
+        };
+      }
+
+      case 'log': {
+        const entries = this.client.getLogEntries();
+        return {
+          success: true,
+          message: `[Ω∞v CLI] Provenance Log (${entries.length} entries)`,
+          output: entries,
+        };
+      }
+
+      case 'integrity': {
+        const integrity = this.client.verifyIntegrity();
+        return {
+          success: integrity.valid,
+          message: `[Ω∞v CLI] Chain Integrity: ${integrity.valid ? 'VALID' : 'BROKEN'}`,
+          output: integrity,
+        };
+      }
+
+      case 'help':
+      default: {
+        return {
+          success: true,
+          message: `Ω∞v Oceanicos CLI v0.1.0
+Commands:
+  omega-v loop [claim]     Execute complete verification loop
+  omega-v swarm [claim]    Execute multi-agent Formless Swarm cycle
+  omega-v metrics          Show system health and metrics
+  omega-v log              Display event provenance log
+  omega-v integrity        Verify event hash chain integrity
+  omega-v help             Show this help menu`,
+        };
+      }
+    }
+  }
+}
+
+export default OceanicosCLI;

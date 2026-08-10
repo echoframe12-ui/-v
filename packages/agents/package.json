@@ -1,0 +1,29 @@
+{
+  "name": "@omega-v/agents",
+  "version": "0.1.0",
+  "description": "Formless Agent Swarm for Ω∞v Oceanicos",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "jest",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "keywords": ["agents", "swarm", "formless", "provenance", "oceanicos"],
+  "author": "Ω∞v Community",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@omega-v/types": "*",
+    "@omega-v/sdk": "*",
+    "@omega-v/compiler": "*",
+    "@omega-v/ir": "*"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  }
+}

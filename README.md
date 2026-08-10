@@ -6,6 +6,7 @@ A verification-first full-stack ecosystem for observing, verifying, attesting, a
 
 ## Quick Links
 
+- 💧 **[Formless Constitution](FORMLESS.md)** — One Current, Infinite Forms & Governing Equations
 - 📋 **[Manifest](MANIFEST.md)** — Project mission, principles, and architecture
 - 📜 **[Charter](CHARTER.md)** — Living agnostic principles and decision-making
 - 🤝 **[Contributing](CONTRIBUTING.md)** — How to contribute verification-first
@@ -66,126 +67,46 @@ Every component contains the whole verification loop.
 ```
 omega-v-oceanicos/
 ├── apps/              # User-facing applications
-│   ├── api/           # REST/gRPC backend
-│   ├── web/           # Web dashboard
+│   ├── api/           # Express REST backend (/complete-loop, /swarm, /log, /metrics)
+│   ├── web/           # React/Vite dashboard with Formless Swarm visualization
 │   └── mobile/        # Mobile app (planned)
 │
 ├── packages/          # Shared libraries
-│   ├── observer/      # Event capture
-│   ├── verification/  # Rule engine
-│   ├── attestation/   # Cryptographic signing
-│   ├── compiler/      # Rule compiler
-│   ├── ir/            # Bytecode
-│   ├── sdk/           # Client SDK
-│   └── cli/           # Command-line tool
+│   ├── agents/        # FormlessSwarm & 5 autonomous verification agents
+│   ├── observer/      # Event capture & signal normalization
+│   ├── verification/  # Rule engine & evidence path compiler
+│   ├── attestation/   # Cryptographic HMAC-SHA256 signing & hash lineage
+│   ├── compiler/      # Rule compiler & IR generator
+│   ├── ir/            # Execution stack bytecode VM
+│   ├── sdk/           # Full-cycle client SDK
+│   ├── store/         # Append-only hash-chained provenance store
+│   └── cli/           # Terminal CLI tool (`omega-v loop`, `omega-v swarm`, `omega-v integrity`)
 │
 ├── docs/              # Documentation
-├── infra/             # Deployment
-├── tests/             # Integration tests
+├── infra/             # Containerization (Dockerfile, docker-compose, nginx.conf)
+├── tests/             # Workspace integration tests
 │
-├── MANIFEST.md        # Project constitution
+├── FORMLESS.md        # Formless Intelligence constitution & boot sequence
+├── MANIFEST.md        # Project mission & architecture
 ├── CHARTER.md         # Living principles
 └── CONTRIBUTING.md    # Contribution guide
 ```
 
 ---
 
-## Getting Started
-
-### 1. Read the Foundation
-
-Start with these to understand the project:
-
-- [MANIFEST.md](MANIFEST.md) — 5 min read on the vision
-- [CHARTER.md](CHARTER.md) — 10 min read on our principles
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 15 min read on system design
-
-### 2. Set Up Development
-
-```bash
-# Clone
-git clone https://github.com/starofgodmayomi-droid/omega-v-oceanicos.git
-cd omega-v-oceanicos
-
-# Install
-npm install
-
-# Verify everything works
-npm run verify
-```
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed setup.
-
-### 3. Pick a Contribution
-
-Look for issues labeled:
-- `good first issue` — Start here
-- `help wanted` — Areas needing contributions
-- `question` — Discussion and feedback
-
-### 4. Read the Contribution Guide
-
-[CONTRIBUTING.md](CONTRIBUTING.md) explains:
-- How to propose changes
-- How to verify your work
-- How to submit PRs
-- Our review process
-
----
-
-## Common Commands
-
-### Development
-
-```bash
-# Start all services
-npm run dev
-
-# Run in watch mode
-npm run watch
-
-# Build everything
-npm run build
-```
-
-### Verification
-
-```bash
-# Full verification (lint, test, build)
-npm run verify
-
-# Quick verification (lint, test only)
-npm run verify:fast
-
-# Comprehensive (full + coverage + integration)
-npm run verify:full
-```
-
-### Code Quality
-
-```bash
-npm run lint              # Check code style
-npm run lint:fix          # Fix style issues
-npm run type-check        # Check TypeScript
-npm run test:coverage     # Generate coverage report
-```
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#common-commands) for more.
-
----
-
 ## Current Phase
 
-**Phase 1: Foundation** (In Progress)
+**Phase 1 & 2: Core Loop & Formless Swarm** (Complete & Verified)
 
-- ✅ Project manifest and charter
-- ✅ Development setup and tooling
-- ✅ Documentation structure
-- ⏳ Core verification loop implementation
-- ⏳ API server skeleton
-- ⏳ Web dashboard skeleton
+- ✅ Project manifest, charter, and Formless constitution ([FORMLESS.md](FORMLESS.md))
+- ✅ Core verification loop (`Observe → Verify → Attest → Record → Learn → Return`)
+- ✅ Express API Server with `/complete-loop`, `/swarm`, `/log`, `/metrics`
+- ✅ `@omega-v/agents` Formless Swarm engine (Observer, Verifier, Security, Governance, Learning)
+- ✅ Terminal CLI tool (`omega-v loop`, `omega-v swarm`, `omega-v integrity`)
+- ✅ React / Vite Web Dashboard with live multi-agent swarm cards
+- ✅ Reproducible container deployment (`Dockerfile`, `docker-compose.yml`, `infra/nginx.conf`)
 
-**Next Phase**: Core Loop Implementation (Step 2)
+**Next Phase**: Advanced IR rule specifications & distributed ledger integrations.
 
 See [MANIFEST.md](MANIFEST.md#verification-roadmap) for the full roadmap.
 

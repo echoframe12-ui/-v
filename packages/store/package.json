@@ -1,0 +1,26 @@
+{
+  "name": "@omega-v/store",
+  "version": "0.1.0",
+  "description": "Append-only provenance store for Ω∞v Oceanicos",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "jest",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "keywords": ["provenance", "event-log", "append-only", "oceanicos"],
+  "author": "Ω∞v Community",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@omega-v/types": "*"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  }
+}

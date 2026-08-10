@@ -25,9 +25,16 @@
       "@omega-v/types": ["packages/types/src/index.ts"],
       "@omega-v/observer": ["packages/observer/src/index.ts"],
       "@omega-v/verification": ["packages/verification/src/index.ts"],
-      "@omega-v/attestation": ["packages/attestation/src/index.ts"]
+      "@omega-v/attestation": ["packages/attestation/src/index.ts"],
+      "@omega-v/store": ["packages/store/src/index.ts"],
+      "@omega-v/ir": ["packages/ir/src/index.ts"],
+      "@omega-v/compiler": ["packages/compiler/src/index.ts"],
+      "@omega-v/sdk": ["packages/sdk/src/index.ts"],
+      "@omega-v/cli": ["packages/cli/src/index.ts"],
+      "@omega-v/agents": ["packages/agents/src/index.ts"]
     }
   },
   "include": ["packages/*/src", "apps/*/src"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+
 }
